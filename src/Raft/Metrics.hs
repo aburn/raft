@@ -3,6 +3,7 @@
 
 module Raft.Metrics
 ( RaftNodeMetrics
+, defaultRaftNodeMetrics
 , getMetricsStore
 , getRaftNodeMetrics
 , setNodeStateLabel
@@ -39,6 +40,16 @@ data RaftNodeMetrics
   , lastLogIndexGauge :: Int64
   , commitIndexGauge :: Int64
   } deriving (Show, Generic, Serialize)
+
+defaultRaftNodeMetrics :: RaftNodeMetrics
+defaultRaftNodeMetrics = RaftNodeMetrics
+  { invalidCmdCounter = 0
+  , eventsHandledCounter = 0
+  , nodeStateLabel = "Follower"
+  , lastLogHashLabel = toS (unEntryHash genesisHash)
+  , lastLogIndexGauge = 0
+  , commitIndexGauge = 0
+  }
 
 getMetricsStore :: (MonadIO m, Metrics.MonadMetrics m) => m EKG.Store
 getMetricsStore = Metrics._metricsStore <$> Metrics.getMetrics
