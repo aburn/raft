@@ -42,6 +42,7 @@ module Raft.Client
 , ClientReadResp(..)
 , ClientWriteResp(..)
 , ClientRedirResp(..)
+, ClientMetricsResp(..)
 
 
 -- ** Client Interface
