@@ -92,6 +92,7 @@ initRaftNodeState =
       , fsLastLogEntry = NoLogEntries
       , fsTermAtAEPrevIndex = Nothing
       , fsClientReqCache = mempty
+      , fsClusterConfig = ClusterConfig mempty
       }
 
 -- | The volatile state of a Raft Node
@@ -101,6 +102,11 @@ data NodeState (a :: Mode) v where
   NodeLeaderState :: LeaderState v -> NodeState 'Leader v
 
 deriving instance Show v => Show (NodeState s v)
+
+data ClusterConfig = ClusterConfig
+  { nodeIds :: NodeIds
+  --, pendingChange ::
+  } deriving (Show)
 
 data FollowerState v = FollowerState
   { fsCurrentLeader :: CurrentLeader
@@ -115,7 +121,8 @@ data FollowerState v = FollowerState
     -- ^ The term of the log entry specified in and AppendEntriesRPC
   , fsClientReqCache :: ClientWriteReqCache
     -- ^ The client write request cache, growing linearly with the number of
-    -- clients
+  , fsClusterConfig :: ClusterConfig
+    -- ^ Set of nodes in the network
   } deriving (Show)
 
 data CandidateState v = CandidateState
@@ -130,6 +137,8 @@ data CandidateState v = CandidateState
   , csClientReqCache :: ClientWriteReqCache
     -- ^ The client write request cache, growing linearly with the number of
     -- clients
+  , csClusterConfig :: ClusterConfig
+    -- ^ Set of nodes in the network
   } deriving (Show)
 
 data ClientReadReqData = ClientReadReqData
@@ -165,6 +174,8 @@ data LeaderState v = LeaderState
     -- request heartbeat.
   , lsClientReqCache :: ClientWriteReqCache
     -- ^ The cache of client write requests received by the leader
+  , lsClusterConfig :: ClusterConfig
+    -- ^ Set of nodes in the network
   } deriving (Show)
 
 --------------------------------------------------------------------------------

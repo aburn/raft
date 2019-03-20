@@ -146,7 +146,7 @@ handleTimeout ns@(NodeFollowerState fs) timeout =
     ElectionTimeout -> do
       logDebug "Follower times out. Starts election. Becomes candidate"
       candidateResultState StartElection <$>
-        startElection (fsCommitIndex fs) (fsLastApplied fs) (fsLastLogEntry fs) (fsClientReqCache fs)
+        startElection (fsCommitIndex fs) (fsLastApplied fs) (fsLastLogEntry fs) (fsClientReqCache fs) (fsClusterConfig fs)
     -- Follower should ignore heartbeat timeout events
     HeartbeatTimeout -> pure (followerResultState Noop fs)
 

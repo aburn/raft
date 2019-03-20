@@ -157,8 +157,9 @@ startElection
   -> Index
   -> LastLogEntry v
   -> ClientWriteReqCache
+  -> ClusterConfig
   -> TransitionM sm v (CandidateState v)
-startElection commitIndex lastApplied lastLogEntry clientReqCache  = do
+startElection commitIndex lastApplied lastLogEntry clientReqCache clusterConfig = do
     incrementTerm
     voteForSelf
     resetElectionTimeout
@@ -171,6 +172,7 @@ startElection commitIndex lastApplied lastLogEntry clientReqCache  = do
       , csVotes = Set.singleton selfNodeId
       , csLastLogEntry = lastLogEntry
       , csClientReqCache = clientReqCache
+      , csClusterConfig = clusterConfig
       }
   where
     requestVoteMessage = do

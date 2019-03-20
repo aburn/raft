@@ -169,6 +169,7 @@ handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (SerialReq ser
       newLogEntry <- case clientWriteReq of
         ClientCmdReq cmd -> mkNewLogEntry (EntryValue cmd) serial
         ClientMembershipChangeReq nids -> do
+
           mkNewLogEntry (EntryStartMembershipChange nids) serial
 
       appendLogEntries (Empty Seq.|> newLogEntry)

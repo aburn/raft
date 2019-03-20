@@ -147,7 +147,7 @@ handleTimeout (NodeCandidateState candidateState@CandidateState{..}) timeout =
     HeartbeatTimeout -> pure $ candidateResultState Noop candidateState
     ElectionTimeout ->
       candidateResultState RestartElection <$>
-        startElection csCommitIndex csLastApplied csLastLogEntry csClientReqCache
+        startElection csCommitIndex csLastApplied csLastLogEntry csClientReqCache csClusterConfig
 
 handleClientReadRequest :: ClientReqHandler 'Candidate ClientReadReq sm v
 handleClientReadRequest = handleClientRequest
