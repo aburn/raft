@@ -164,7 +164,7 @@ data ClientMetricsReq
 class ClientReqType a v
 
 instance ClientReqType ClientReadReq v
-instance ClientReqType (ClientWriteReq v) v
+instance ClientReqType (SerialReq (ClientWriteReq v)) v
 instance ClientReqType ClientMetricsReq v
 
 --------------------------------------------------------------------------------

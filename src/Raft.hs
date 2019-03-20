@@ -258,7 +258,7 @@ handleEventLoop initStateMachine = do
           case event of
             MessageEvent (ClientRequestEvent (ClientRequest cid creq)) ->
               case creq of
-                ClientWriteReq (ClientCmdReq serial cmd) -> do
+                ClientWriteReq (SerialReq serial (ClientCmdReq cmd)) -> do
                   eRes <- lift (applyLogCmd MonadicValidation stateMachine cmd)
                   case eRes of
                     Left err -> do
