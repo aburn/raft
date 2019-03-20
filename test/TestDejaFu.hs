@@ -17,6 +17,7 @@ import Protolude hiding
 
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Set as Set
 import qualified Data.Maybe as Maybe
 import Test.QuickCheck
 
@@ -35,6 +36,7 @@ import RaftTestT
 import qualified SampleEntries
 
 import Raft
+import Raft.Client
 
 dejaFuSettings = defaultSettings { _way = randomly (mkStdGen 42) 100 }
 
@@ -73,24 +75,24 @@ incrValue :: RaftTestClientM (Store, Index)
 incrValue = do
   leaderElection node0
   Right idx <- do
-    syncClientWrite node0 (Set "x" 41)
-    syncClientWrite node0 (Incr "x")
+    syncClientWriteCmd node0 (Set "x" 41)
+    syncClientWriteCmd node0 (Incr "x")
   Right store <- syncClientRead node0
   pure (store, idx)
 
 multIncrValue :: RaftTestClientM (Store, Index)
 multIncrValue = do
     leaderElection node0
-    syncClientWrite node0 (Set "x" 0)
+    syncClientWriteCmd node0 (Set "x" 0)
     Right idx <-
       fmap (Maybe.fromJust . lastMay) $
-        replicateM 10 $ syncClientWrite node0 (Incr "x")
+        replicateM 10 $ syncClientWriteCmd node0 (Incr "x")
     store <- pollForReadResponse node0
     pure (store, idx)
 
 leaderRedirect :: RaftTestClientM CurrentLeader
 leaderRedirect = do
-    Left resp <- syncClientWrite node1 (Set "x" 42)
+    Left resp <- syncClientWriteCmd node1 (Set "x" 42)
     pure resp
 
 followerRedirNoLeader :: RaftTestClientM CurrentLeader
@@ -104,7 +106,7 @@ followerRedirLeader = do
 membershipChange :: RaftTestClientM CurrentLeader
 membershipChange = do
     leaderElection node0
-    syncClientWrite node0 (EntryStartMembershipChange nids)
+    syncClientWrite node0 (ClientMembershipChangeReq $ Set.fromList [node0, node1, node2])
 
     Left ldr <- syncClientRead node0
     pure ldr
@@ -122,31 +124,31 @@ newLeaderElection = do
 comprehensive :: RaftTestClientT ConcIO (Index, Store, CurrentLeader)
 comprehensive = do
     leaderElection node0
-    Right idx2 <- syncClientWrite node0 (Set "x" 7)
-    Right idx3 <- syncClientWrite node0 (Set "y" 3)
-    Left (CurrentLeader _) <- syncClientWrite node1 (Incr "y")
+    Right idx2 <- syncClientWriteCmd node0 (Set "x" 7)
+    Right idx3 <- syncClientWriteCmd node0 (Set "y" 3)
+    Left (CurrentLeader _) <- syncClientWriteCmd node1 (Incr "y")
     Right _ <- syncClientRead node0
 
     leaderElection node1
-    Right idx5 <- syncClientWrite node1 (Incr "x")
-    Right idx6 <- syncClientWrite node1 (Incr "y")
-    Right idx7 <- syncClientWrite node1 (Set "z" 40)
-    Left (CurrentLeader _) <- syncClientWrite node2 (Incr "y")
+    Right idx5 <- syncClientWriteCmd node1 (Incr "x")
+    Right idx6 <- syncClientWriteCmd node1 (Incr "y")
+    Right idx7 <- syncClientWriteCmd node1 (Set "z" 40)
+    Left (CurrentLeader _) <- syncClientWriteCmd node2 (Incr "y")
     Right _ <- syncClientRead node1
 
     leaderElection node2
-    Right idx9 <- syncClientWrite node2 (Incr "z")
-    Right idx10 <- syncClientWrite node2 (Incr "x")
-    Left _ <- syncClientWrite node1 (Set "q" 100)
-    Right idx11 <- syncClientWrite node2 (Incr "y")
-    Left _ <- syncClientWrite node0 (Incr "z")
-    Right idx12 <- syncClientWrite node2 (Incr "y")
-    Left (CurrentLeader _) <- syncClientWrite node0 (Incr "y")
+    Right idx9 <- syncClientWriteCmd node2 (Incr "z")
+    Right idx10 <- syncClientWriteCmd node2 (Incr "x")
+    Left _ <- syncClientWriteCmd node1 (Set "q" 100)
+    Right idx11 <- syncClientWriteCmd node2 (Incr "y")
+    Left _ <- syncClientWriteCmd node0 (Incr "z")
+    Right idx12 <- syncClientWriteCmd node2 (Incr "y")
+    Left (CurrentLeader _) <- syncClientWriteCmd node0 (Incr "y")
     Right _ <- syncClientRead node2
 
     leaderElection node0
-    Right idx14 <- syncClientWrite node0 (Incr "z")
-    Left (CurrentLeader _) <- syncClientWrite node1 (Incr "y")
+    Right idx14 <- syncClientWriteCmd node0 (Incr "z")
+    Left (CurrentLeader _) <- syncClientWriteCmd node1 (Incr "y")
 
     Right store <- syncClientRead node0
     Left ldr <- syncClientRead node1
@@ -187,7 +189,7 @@ correctResult (Left _) = False
 test_AEFollower :: TestTree
 test_AEFollower =
   testGroup "AEFollower"
-    [ majorityNodeStatesEqual (syncClientWrite node0 (Set "x" 7))
+    [ majorityNodeStatesEqual (syncClientWriteCmd node0 (Set "x" 7))
       [ (node0, Term 4, SampleEntries.entries)
       , (node1, Term 4, Seq.take 11 SampleEntries.entries)
       , (node2, Term 4, Seq.take 11 SampleEntries.entries)

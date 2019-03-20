@@ -355,7 +355,7 @@ syncClientRead nid = do
 syncClientWrite
   :: (MonadConc m, MonadIO m, MonadFail m)
   => NodeId
-  -> StoreCmd
+  -> ClientWriteReq StoreCmd
   -> RaftTestClientT m (Either CurrentLeader Index)
 syncClientWrite nid cmd = do
   eRes <- clientWriteTo nid cmd
@@ -367,6 +367,13 @@ syncClientWrite nid cmd = do
     a -> do
       print a
       panic "Failed to receive client write response..."
+
+syncClientWriteCmd
+  :: (MonadConc m, MonadIO m, MonadFail m)
+  => NodeId
+  -> StoreCmd
+  -> RaftTestClientT m (Either CurrentLeader Index)
+syncClientWriteCmd nid cmd = syncClientWrite nid (ClientCmdReq cmd)
 
 heartbeat :: (MonadConc m, MonadIO m) => TestEventChan m -> m ()
 heartbeat eventChan = do
