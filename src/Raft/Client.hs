@@ -134,7 +134,7 @@ instance S.Serialize v => S.Serialize (ClientRequest v)
 -- | Representation of a client request
 data ClientReq v
   = ClientReadReq ClientReadReq -- ^ Request the latest state of the state machine
-  | ClientWriteReq (ClientWriteReq v) -- ^ Write a command
+  | ClientWriteReq SerialNum (ClientWriteReq v) -- ^ Write a command
   | ClientMetricsReq ClientMetricsReq -- ^ Request the metrics of a raft node
   deriving (Show, Generic)
 
@@ -146,7 +146,8 @@ data ClientReadReq
   deriving (Show, Generic, S.Serialize)
 
 data ClientWriteReq v
-  = ClientCmdReq SerialNum v -- ^ Issue a command to update the state machine
+  = ClientCmdReq v -- ^ Issue a command to update the state machine
+  | ClientMembershipChangeReq NodeIds -- ^ Request a membership chang
   deriving (Show, Generic, S.Serialize)
 
 data ClientMetricsReq
@@ -360,7 +361,7 @@ clientReadTimeout t = clientTimeout "clientRead" t . clientRead
 -- | Send a write request to the current leader and wait for a response
 clientWrite
   :: (RaftClientSend m v, RaftClientRecv m s v)
-  => v
+  => ClientWriteReq v
   -> RaftClientT s v m (Either (RaftClientError s v m) (ClientWriteResp s v))
 clientWrite cmd = do
   eSend <- clientSendWrite cmd
@@ -373,7 +374,7 @@ clientWrite cmd = do
 clientWriteTo
   :: (RaftClientSend m v, RaftClientRecv m s v)
   => NodeId
-  -> v
+  -> ClientWriteReq v
   -> RaftClientT s v m (Either (RaftClientError s v m) (ClientWriteResp s v))
 clientWriteTo nid cmd = do
   eSend <- clientSendWriteTo nid cmd
@@ -386,7 +387,7 @@ clientWriteTimeout
   => Int
   -> v
   -> RaftClientT s v m (Either (RaftClientError s v m) (ClientWriteResp s v))
-clientWriteTimeout t cmd = clientTimeout "clientWrite" t (clientWrite cmd)
+clientWriteTimeout t cmd = clientTimeout "clientWrite" t (clientWrite (ClientCmdReq cmd))
 
 clientQueryNodeMetrics
   :: (MonadBaseControl IO m, RaftClientSend m v, RaftClientRecv m s v)
@@ -457,22 +458,22 @@ clientSendReadTo nid crr =
 -- | Send a write request to the current leader. Nonblocking.
 clientSendWrite
   :: RaftClientSend m v
-  => v
+  => ClientWriteReq v
   -> RaftClientT s v m (Either (RaftClientSendError m v) ())
 clientSendWrite v = do
   gets raftClientSerialNum >>= \sn ->
-    clientSend (ClientWriteReq (ClientCmdReq sn v))
+    clientSend (ClientWriteReq sn v)
 
 -- | Send a write request to a specific raft node, ignoring the current
 -- leader. This function is used in testing.
 clientSendWriteTo
   :: RaftClientSend m v
   => NodeId
-  -> v
+  -> ClientWriteReq v
   -> RaftClientT s v m (Either (RaftClientSendError m v) ())
 clientSendWriteTo nid v =
   gets raftClientSerialNum >>= \sn ->
-    clientSendTo nid (ClientWriteReq (ClientCmdReq sn v))
+    clientSendTo nid (ClientWriteReq sn v)
 
 clientSendMetricsReqTo
   :: RaftClientSend m v

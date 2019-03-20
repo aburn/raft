@@ -73,6 +73,12 @@ data EntryIssuer
 
 data EntryValue v
   = EntryValue v
+  -- | Either combined old and new config
+  -- or just new config since nodes always
+  -- use the latest config in their log regardless
+  -- of whether it's committed
+  | EntryStartMembershipChange NodeIds
+  | EntryEndMembershipChange NodeIds
   | NoValue -- ^ Used as a first committed entry of a new term
   deriving (Show, Eq, Generic, Serialize)
 
