@@ -152,7 +152,7 @@ handleTimeout (NodeCandidateState candidateState@CandidateState{..}) timeout =
 handleClientReadRequest :: ClientReqHandler 'Candidate ClientReadReq sm v
 handleClientReadRequest = handleClientRequest
 
-handleClientWriteRequest :: ClientReqHandler 'Candidate (ClientWriteReq v) sm v
+handleClientWriteRequest :: ClientReqHandler 'Candidate (SerialReq (ClientWriteReq v)) sm v
 handleClientWriteRequest = handleClientRequest
 
 -- | When candidates handle a client request, they respond with NoLeader, as the

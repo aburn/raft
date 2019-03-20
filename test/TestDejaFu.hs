@@ -101,6 +101,15 @@ followerRedirLeader = do
     leaderElection node0
     leaderRedirect
 
+membershipChange :: RaftTestClientM CurrentLeader
+membershipChange = do
+    leaderElection node0
+    syncClientWrite node0 (EntryStartMembershipChange nids)
+
+    Left ldr <- syncClientRead node0
+    pure ldr
+
+
 newLeaderElection :: RaftTestClientM CurrentLeader
 newLeaderElection = do
     leaderElection node0

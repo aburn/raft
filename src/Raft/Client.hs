@@ -22,6 +22,7 @@ module Raft.Client
 , RaftRecvClient(..)
 
 , SerialNum(..)
+, SerialReq(..)
 
 -- ** Client Requests
 , ClientRequest(..)
@@ -134,7 +135,7 @@ instance S.Serialize v => S.Serialize (ClientRequest v)
 -- | Representation of a client request
 data ClientReq v
   = ClientReadReq ClientReadReq -- ^ Request the latest state of the state machine
-  | ClientWriteReq SerialNum (ClientWriteReq v) -- ^ Write a command
+  | ClientWriteReq (SerialReq (ClientWriteReq v)) -- ^ Write a command
   | ClientMetricsReq ClientMetricsReq -- ^ Request the metrics of a raft node
   deriving (Show, Generic)
 
@@ -143,6 +144,10 @@ instance S.Serialize v => S.Serialize (ClientReq v)
 data ClientReadReq
   = ClientReadEntries ReadEntriesSpec
   | ClientReadStateMachine
+  deriving (Show, Generic, S.Serialize)
+
+data SerialReq a
+  = SerialReq SerialNum a
   deriving (Show, Generic, S.Serialize)
 
 data ClientWriteReq v
@@ -462,7 +467,7 @@ clientSendWrite
   -> RaftClientT s v m (Either (RaftClientSendError m v) ())
 clientSendWrite v = do
   gets raftClientSerialNum >>= \sn ->
-    clientSend (ClientWriteReq sn v)
+    clientSend (ClientWriteReq (SerialReq sn v))
 
 -- | Send a write request to a specific raft node, ignoring the current
 -- leader. This function is used in testing.
@@ -473,7 +478,7 @@ clientSendWriteTo
   -> RaftClientT s v m (Either (RaftClientSendError m v) ())
 clientSendWriteTo nid v =
   gets raftClientSerialNum >>= \sn ->
-    clientSendTo nid (ClientWriteReq sn v)
+    clientSendTo nid (ClientWriteReq (SerialReq sn v))
 
 clientSendMetricsReqTo
   :: RaftClientSend m v

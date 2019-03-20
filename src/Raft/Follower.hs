@@ -158,7 +158,7 @@ handleClientReadRequest = handleClientRequest
 
 -- | When a client handles a client request, it redirects the client to the
 -- current leader by responding with the current leader id, if it knows of one.
-handleClientWriteRequest :: ClientReqHandler 'Follower (ClientWriteReq v) sm v
+handleClientWriteRequest :: ClientReqHandler 'Follower (SerialReq (ClientWriteReq v)) sm v
 handleClientWriteRequest = handleClientRequest
 
 -- | When a client handles a client request, it redirects the client to the

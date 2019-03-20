@@ -145,8 +145,8 @@ handleClientReadRequest (NodeLeaderState ls@LeaderState{..}) cid crr = do
       Map.insert lsReadReqsHandled (clientReqData, 1) lsReadRequest
   }
 
-handleClientWriteRequest :: (Show v, Serialize v) => ClientReqHandler 'Leader (ClientWriteReq v) sm v
-handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (ClientCmdReq serial v) =
+handleClientWriteRequest :: (Show v, Serialize v) => ClientReqHandler 'Leader (SerialReq (ClientWriteReq v)) sm v
+handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (SerialReq serial (ClientCmdReq v)) =
   leaderResultState HandleClientReq <$>
     case Map.lookup cid lsClientReqCache of
       -- This is important case #1

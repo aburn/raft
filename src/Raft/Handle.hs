@@ -100,7 +100,7 @@ data RaftHandler ns sm v = RaftHandler
   , handleRequestVoteResponse :: RPCHandler ns sm RequestVoteResponse v
   , handleTimeout :: TimeoutHandler ns sm v
   , handleClientReadRequest :: ClientReqHandler ns ClientReadReq sm v
-  , handleClientWriteRequest :: ClientReqHandler ns (ClientWriteReq v) sm v
+  , handleClientWriteRequest :: ClientReqHandler ns (SerialReq (ClientWriteReq v)) sm v
   }
 
 followerRaftHandler :: (Show v, Serialize v) => RaftHandler 'Follower sm v
