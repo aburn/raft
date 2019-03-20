@@ -80,6 +80,7 @@ handleEvent raftNodeState@(RaftNodeState initNodeState) transitionEnv persistent
               , fsLastLogEntry = csLastLogEntry cs
               , fsTermAtAEPrevIndex = Nothing
               , fsClientReqCache = csClientReqCache cs
+              , fsClusterConfig = csClusterConfig cs
               }
         NodeLeaderState ls ->
           ResultState HigherTermFoundLeader $
@@ -90,6 +91,7 @@ handleEvent raftNodeState@(RaftNodeState initNodeState) transitionEnv persistent
               , fsLastLogEntry = lsLastLogEntry ls
               , fsTermAtAEPrevIndex = Nothing
               , fsClientReqCache = lsClientReqCache ls
+              , fsClusterConfig = lsClusterConfig ls
               }
 
 

@@ -63,6 +63,7 @@ handleAppendEntries (NodeCandidateState candidateState@CandidateState{..}) sende
           , fsLastLogEntry = csLastLogEntry
           , fsTermAtAEPrevIndex = Nothing
           , fsClientReqCache = csClientReqCache
+          , fsClusterConfig = csClusterConfig
           }
 
 -- | Candidates should not respond to 'AppendEntriesResponse' messages.
@@ -139,6 +140,7 @@ handleRequestVoteResponse (NodeCandidateState candidateState@CandidateState{..})
        , lsReadReqsHandled = 0
        , lsReadRequest = mempty
        , lsClientReqCache = csClientReqCache
+       , lsClusterConfig = csClusterConfig
        }
 
 handleTimeout :: TimeoutHandler 'Candidate sm v
