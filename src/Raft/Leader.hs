@@ -146,11 +146,11 @@ handleClientReadRequest (NodeLeaderState ls@LeaderState{..}) cid crr = do
   }
 
 handleClientWriteRequest :: (Show v, Serialize v) => ClientReqHandler 'Leader (SerialReq (ClientWriteReq v)) sm v
-handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (SerialReq serial (ClientCmdReq v)) =
+handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (SerialReq serial clientWriteReq) =
   leaderResultState HandleClientReq <$>
     case Map.lookup cid lsClientReqCache of
       -- This is important case #1
-      Nothing -> handleNewEntry serial v
+      Nothing -> handleNewEntry serial clientWriteReq
       Just (currSerial, mResp)
         | serial < currSerial -> do
             let debugMsg s1 s2 = "Ignoring serial number " <> s1 <> ", current serial is " <> s2
@@ -162,23 +162,27 @@ handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (SerialReq ser
               Just idx -> respondClientWrite cid idx serial
             pure ls
         -- This is important case #2, where serial > currSerial
-        | otherwise -> handleNewEntry serial v
+        | otherwise -> handleNewEntry serial clientWriteReq
   where
-    handleNewEntry serial cmd = do
+    handleNewEntry serial clientWriteReq = do
       let lsClientReqCache' = Map.insert cid (serial, Nothing) lsClientReqCache
-      newLogEntry <- mkNewLogEntry cmd serial
+      newLogEntry <- case clientWriteReq of
+        ClientCmdReq cmd -> mkNewLogEntry (EntryValue cmd) serial
+        ClientMembershipChangeReq nids -> do
+          mkNewLogEntry (EntryStartMembershipChange nids) serial
+
       appendLogEntries (Empty Seq.|> newLogEntry)
       aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
       broadcast (SendAppendEntriesRPC aeData)
       pure ls { lsClientReqCache = lsClientReqCache' }
 
-    mkNewLogEntry v sn = do
+    mkNewLogEntry entry sn = do
       currentTerm <- currentTerm <$> get
       let lastLogEntryIdx = lastLogEntryIndex lsLastLogEntry
       pure $ Entry
         { entryIndex = succ lastLogEntryIdx
         , entryTerm = currentTerm
-        , entryValue = EntryValue v
+        , entryValue = entry
         , entryIssuer = ClientIssuer cid sn
         , entryPrevHash = hashLastLogEntry lsLastLogEntry
         }
