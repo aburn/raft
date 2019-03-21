@@ -89,7 +89,7 @@ handleRequestVoteResponse (NodeCandidateState candidateState@CandidateState{..})
       | not rvrVoteGranted -> pure $ candidateResultState Noop candidateState
       | otherwise -> do
           let newCsVotes = Set.insert sender csVotes
-          cNodeIds <- asks (raftConfigNodeIds . nodeConfig)
+          cNodeIds <- askAllNodeIds
           if not $ hasMajority cNodeIds newCsVotes
             then do
               let newCandidateState = candidateState { csVotes = newCsVotes }

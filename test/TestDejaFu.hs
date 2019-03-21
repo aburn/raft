@@ -103,7 +103,7 @@ followerRedirLeader = do
     leaderElection node0
     leaderRedirect
 
-membershipChange :: RaftTestClientM CurrentLeader
+membershipChange :: RaftTestClientT IO CurrentLeader
 membershipChange = do
     leaderElection node0
     syncClientWrite node0 (ClientMembershipChangeReq $ Set.fromList [node0, node1, node2])

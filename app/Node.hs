@@ -90,14 +90,13 @@ nodeMain storageState storageType nid nids = do
             let allNodeIds = Set.fromList (nid : nids)
             let nodeConfig = RaftNodeConfig
                               { raftConfigNodeId = toS nid
-                              , raftConfigNodeIds = allNodeIds
                               -- These are recommended timeouts from the original
                               -- raft paper and the ARC report.
                               , raftConfigElectionTimeout = (150000, 300000)
                               , raftConfigHeartbeatTimeout = 50000
                               , raftConfigStorageState = storageState
                               }
-            runRaftNode nodeConfig defaultOptionalRaftNodeConfig (LogCtx LogStdout Debug) (mempty :: Store)
+            runRaftNode nodeConfig allNodeIds defaultOptionalRaftNodeConfig (LogCtx LogStdout Debug) (mempty :: Store)
 
 cleanStorage :: FilePath -> LogStorage -> IO ()
 cleanStorage nodeDir ls = do

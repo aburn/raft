@@ -82,10 +82,17 @@ askNodeId :: TransitionM sm v NodeId
 askNodeId = asks (raftConfigNodeId . nodeConfig)
 
 -- | Returns the set of all node ids excluding the node's own id
+askAllNodeIds :: TransitionM sm v NodeIds
+askAllNodeIds = do
+  RaftNodeState state <- asks nodeState
+  pure (nodeIds $ getClusterConfig state)
+
+
+-- | Returns the set of all node ids excluding the node's own id
 askPeerNodeIds :: TransitionM sm v NodeIds
 askPeerNodeIds = do
   selfNodeId <- askNodeId
-  allNodeIds <- asks (raftConfigNodeIds . nodeConfig)
+  allNodeIds <- askAllNodeIds
   pure (Set.delete selfNodeId allNodeIds)
 
 --------------------------------------------------------------------------------
@@ -103,9 +110,8 @@ type ClientReqHandler ns cr sm v = (ClientReqType cr v, Show v) => NodeState ns 
 broadcast :: SendRPCAction v -> TransitionM sm v ()
 broadcast sendRPC = do
   selfNodeId <- askNodeId
-  tellAction =<<
-    flip BroadcastRPC sendRPC
-      <$> asks (Set.filter (selfNodeId /=) . raftConfigNodeIds . nodeConfig)
+  nodeIds <- askPeerNodeIds
+  tellAction $ BroadcastRPC nodeIds sendRPC
 
 send :: NodeId -> SendRPCAction v -> TransitionM sm v ()
 send nodeId sendRPC = tellAction (SendRPC nodeId sendRPC)

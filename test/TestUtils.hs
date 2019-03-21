@@ -57,21 +57,18 @@ pairMsToMicroS = bimap msToMicroS msToMicroS
 testConfig0, testConfig1, testConfig2 :: RaftNodeConfig
 testConfig0 = RaftNodeConfig
   { raftConfigNodeId = node0
-  , raftConfigNodeIds = nodeIds
   , raftConfigElectionTimeout = pairMsToMicroS (150, 300)
   , raftConfigHeartbeatTimeout = msToMicroS 50
   , raftConfigStorageState = New
   }
 testConfig1 = RaftNodeConfig
   { raftConfigNodeId = node1
-  , raftConfigNodeIds = nodeIds
   , raftConfigElectionTimeout = pairMsToMicroS (150, 300)
   , raftConfigHeartbeatTimeout = msToMicroS 50
   , raftConfigStorageState = New
   }
 testConfig2 = RaftNodeConfig
   { raftConfigNodeId = node2
-  , raftConfigNodeIds = nodeIds
   , raftConfigElectionTimeout = pairMsToMicroS (150, 300)
   , raftConfigHeartbeatTimeout = msToMicroS 50
   , raftConfigStorageState = New

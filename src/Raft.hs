@@ -150,11 +150,12 @@ runRaftNode
      , Exception (RaftPersistError m)
      )
    => RaftNodeConfig         -- ^ Node configuration
+   -> NodeIds -- ^ Node configuration
    -> OptionalRaftNodeConfig -- ^ Config values that can be provided optionally
    -> LogCtx (RaftT v m)     -- ^ The means with which to log messages
    -> sm                     -- ^ Initial state machine state
    -> m ()
-runRaftNode nodeConfig@RaftNodeConfig{..} optConfig logCtx initStateMachine = do
+runRaftNode nodeConfig@RaftNodeConfig{..} nodeIds optConfig logCtx initStateMachine = do
 
   -- Resolve the optional config values
   metricsPort <- liftIO (resolveMetricsPort (raftConfigMetricsPort optConfig))

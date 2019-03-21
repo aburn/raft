@@ -14,7 +14,6 @@ import System.Random (randomIO)
 -- | Configuration of a node in the cluster
 data RaftNodeConfig = RaftNodeConfig
   { raftConfigNodeId :: NodeId -- ^ Node id of the running node
-  , raftConfigNodeIds :: NodeIds -- ^ Set of all other node ids in the cluster
   , raftConfigElectionTimeout :: (Natural, Natural) -- ^ Range of times an election timeout can take
   , raftConfigHeartbeatTimeout :: Natural -- ^ Heartbeat timeout timer
   , raftConfigStorageState :: StorageState -- ^ Create a fresh DB or read from existing
