@@ -412,12 +412,9 @@ handleAction action = do
           -- Update the last log entry data
           modify $ \(RaftNodeState ns) ->
             RaftNodeState (setLastLogEntry ns entries)
-    SetClusterConfigNodeIds nids -> do
-      RaftNodeState ns <- get
-      let clusterConfig = getClusterConfig ns
-      setClusterConfig ns $ clusterConfig {nodeIds = nids}
-
-
+    SetClusterConfigNodeIds nids ->
+      modify $ \(RaftNodeState ns) ->
+            RaftNodeState (setClusterConfig ns $ ClusterConfig nids)
 
     UpdateClientReqCacheFrom idx -> do
       RaftNodeState ns <- get

@@ -158,7 +158,7 @@ appendLogEntries entries = do
         tellAction $ SetClusterConfigNodeIds nids
       EntryEndMembershipChange nids ->
         tellAction $ SetClusterConfigNodeIds nids
-
+      _ -> pure ()
   tellAction $ AppendLogEntries entries
 
 updateClientReqCacheFromIdx :: Index -> TransitionM sm v ()
