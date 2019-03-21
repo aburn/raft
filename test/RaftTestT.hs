@@ -16,6 +16,7 @@ import Protolude hiding
 
 import Data.Sequence (Seq(..), (><), dropWhileR, (!?))
 import qualified Data.Sequence as Seq
+import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.Serialize as S
 import Numeric.Natural
@@ -303,7 +304,7 @@ runTestNode
 runTestNode testEnv =
     runRaftTestT testEnv $ do
       raftEnv <- initializeRaftEnv eventChan dummyTimer dummyTimer (testRaftNodeConfig testEnv) NoLogs
-      runRaftT initRaftNodeState raftEnv $
+      runRaftT (initRaftNodeState (Set.fromList [node0, node1, node2])) raftEnv $
         handleEventLoop (mempty :: Store)
   where
     nid = raftConfigNodeId (testRaftNodeConfig testEnv)

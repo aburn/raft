@@ -82,8 +82,8 @@ nodeMode (RaftNodeState rns) =
     NodeLeaderState _ -> Leader
 
 -- | A node in Raft begins as a follower
-initRaftNodeState :: RaftNodeState v
-initRaftNodeState =
+initRaftNodeState :: NodeIds -> RaftNodeState v
+initRaftNodeState nodeIds =
   RaftNodeState $
     NodeFollowerState FollowerState
       { fsCommitIndex = index0
@@ -92,7 +92,7 @@ initRaftNodeState =
       , fsLastLogEntry = NoLogEntries
       , fsTermAtAEPrevIndex = Nothing
       , fsClientReqCache = mempty
-      , fsClusterConfig = ClusterConfig mempty
+      , fsClusterConfig = ClusterConfig nodeIds
       }
 
 -- | The volatile state of a Raft Node

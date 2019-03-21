@@ -175,7 +175,7 @@ runRaftNode nodeConfig@RaftNodeConfig{..} nodeIds optConfig logCtx initStateMach
       resetHeartbeatTimer = liftIO $ void $ resetTimer heartbeatTimer
 
   raftEnv <- initializeRaftEnv eventChan resetElectionTimer resetHeartbeatTimer nodeConfig logCtx
-  runRaftT initRaftNodeState raftEnv $ do
+  runRaftT (initRaftNodeState nodeIds) raftEnv $ do
 
     -- Fork the monitoring server for metrics
     case metricsPort of
