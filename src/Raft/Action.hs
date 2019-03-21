@@ -19,6 +19,7 @@ data Action sm v
   | SendRPCs (Map NodeId (SendRPCAction v)) -- ^ Send a unique message to specific nodes in parallel
   | BroadcastRPC NodeIds (SendRPCAction v) -- ^ Broadcast the same message to all nodes
   | AppendLogEntries (Entries v) -- ^ Append entries to the replicated log
+  | SetClusterConfigNodeIds NodeIds -- ^ Update cluster config node ids
   | RespondToClient ClientId (ClientRespSpec sm v) -- ^ Respond to client after a client request
   | ResetTimeoutTimer Timeout -- ^ Reset a timeout timer
   | UpdateClientReqCacheFrom Index -- ^ Update the client request cache from the given index onward

@@ -214,6 +214,18 @@ getClusterConfig nodeState =
     NodeCandidateState cs -> csClusterConfig cs
     NodeLeaderState ls -> lsClusterConfig ls
 
+-- | Get the cluster config
+setClusterConfig :: NodeState ns v -> ClusterConfig -> NodeState ns v
+setClusterConfig nodeState clusterConfig =
+  case nodeState of
+    NodeFollowerState fs ->
+      NodeFollowerState fs { fsClusterConfig = clusterConfig }
+    NodeCandidateState cs ->
+      NodeCandidateState cs { csClusterConfig = clusterConfig}
+    NodeLeaderState ls ->
+      NodeLeaderState ls { lsClusterConfig = clusterConfig }
+
+
 getLastLogEntryIndex :: NodeState ns v -> Index
 getLastLogEntryIndex = lastLogEntryIndex . getLastLogEntry
 
