@@ -152,7 +152,8 @@ data SerialReq a
 
 data ClientWriteReq v
   = ClientCmdReq v -- ^ Issue a command to update the state machine
-  | ClientMembershipChangeReq NodeIds -- ^ Request a membership change
+  | ClientMembershipAddNode NodeId -- ^ Request a membership change
+  | ClientMembershipRemoveNode NodeId -- ^ Request a membership change
   deriving (Show, Generic, S.Serialize)
 
 data ClientMetricsReq

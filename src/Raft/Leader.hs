@@ -168,9 +168,13 @@ handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (SerialReq ser
       let lsClientReqCache' = Map.insert cid (serial, Nothing) lsClientReqCache
       newLogEntry <- case clientWriteReq of
         ClientCmdReq cmd -> mkNewLogEntry (EntryValue cmd) serial
-        ClientMembershipChangeReq nids -> do
+        ClientMembershipAddNode nid -> do
+          nids <- askAllNodeIds
+          mkNewLogEntry (EntryStartMembershipChange (Set.insert nid nids) ) serial
+        ClientMembershipRemoveNode nid -> do
+          nids <- askAllNodeIds
+          mkNewLogEntry (EntryStartMembershipChange (Set.delete nid nids) ) serial
 
-          mkNewLogEntry (EntryStartMembershipChange nids) serial
 
       appendLogEntries (Empty Seq.|> newLogEntry)
       aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
