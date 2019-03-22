@@ -38,6 +38,14 @@ data RPC v
   | RequestVoteResponseRPC RequestVoteResponse
   deriving (Show, Generic, Serialize)
 
+isAppendEntriesRPC :: RPC v -> Bool
+isAppendEntriesRPC rpc =
+  case rpc of
+    AppendEntriesRPC _ -> True
+    AppendEntriesResponseRPC _ -> False
+    RequestVoteRPC _ -> False
+    RequestVoteResponseRPC _ -> False
+
 class RPCType a v where
   toRPC :: a -> RPC v
 

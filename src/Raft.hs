@@ -415,7 +415,8 @@ handleAction action = do
       RaftNodeState ns <- get
       case ns of
         NodeLeaderState ls@LeaderState{..} -> do
-          eentries <- lift (readLogEntriesFrom idx)
+          let idxInterval = IndexInterval (Just idx) (Just lsCommitIndex)
+          eentries <- lift (readEntriesByIndices idxInterval)
           case eentries of
             Left err -> throwM err
             Right (entries :: Entries v) ->  do
