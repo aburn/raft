@@ -111,6 +111,7 @@ import Control.Monad.Fail
 import Control.Monad.Catch
 
 import qualified Data.Map as Map
+import qualified Data.Text as T
 import Data.Serialize (Serialize)
 import Data.Sequence (Seq(..), singleton)
 import Data.Time.Clock.System (getSystemTime)
@@ -228,6 +229,8 @@ handleEventLoop
      , RaftSendClient m sm v
      , RaftLog m v
      , RaftLogExceptions m
+     , RaftReadLog m v
+     , Show v
      , RaftPersist m
      , Exception (RaftPersistError m)
      )
@@ -293,6 +296,8 @@ handleEventLoop initStateMachine = do
           logDebug $ "[NodeState]: " <> show raftNodeState
           logDebug $ "[State Machine]: " <> show stateMachine
           logDebug $ "[Persistent State]: " <> show persistentState
+          Right (entries :: Entries v) <- lift $ readLogEntriesFrom index0
+          logDebug $ "[LogEntries]: \n" <> T.intercalate "\n   " (map show (toList entries))
           -- Perform core state machine transition, handling the current event
           nodeConfig <- asks raftNodeConfig
           raftNodeMetrics <- Metrics.getRaftNodeMetrics
