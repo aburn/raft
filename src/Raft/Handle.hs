@@ -53,18 +53,12 @@ handleEvent raftNodeState@(RaftNodeState initNodeState) transitionEnv persistent
             -- If RPC request or response contains term T > currentTerm: set
             -- currentTerm = T, convert to follower
             currentTerm <- gets currentTerm
-            if (currentTerm < rpcTerm rpc) ||
-               (currentTerm == rpcTerm rpc && isCandidate initNodeState && isAppendEntriesRPC rpc)
-               -- ^ While waiting for votes, a candidate may receive an
-               -- AppendEntries RPC from another server claiming to be
-               -- leader. If the leader’s term (included in its RPC) is at least
-               -- as large as the candidate’s current term, then the candidate
-               -- recognizes the leader as legitimate and returns to follower
-               -- state.
+            if (currentTerm < rpcTerm rpc)
               then mkNewRaftNodeState rpc
               else pure raftNodeState
         _ -> ((raftNodeState, []), persistentState, mempty)
 
+    mkNewRaftNodeState :: RPC v -> TransitionM sm v (RaftNodeState v)
     mkNewRaftNodeState rpc =
       case convertToFollower initNodeState of
         ResultState _ nodeState -> do
