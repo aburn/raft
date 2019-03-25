@@ -296,8 +296,6 @@ handleEventLoop initStateMachine = do
           logDebug $ "[NodeState]: " <> show raftNodeState
           logDebug $ "[State Machine]: " <> show stateMachine
           logDebug $ "[Persistent State]: " <> show persistentState
-          Right (entries :: Entries v) <- lift $ readLogEntriesFrom index0
-          logDebug $ "[LogEntries]: \n" <> T.intercalate "\n   " (map show (toList entries))
           -- Perform core state machine transition, handling the current event
           nodeConfig <- asks raftNodeConfig
           raftNodeMetrics <- Metrics.getRaftNodeMetrics
