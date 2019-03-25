@@ -224,7 +224,7 @@ test_AEFollowerBehindMultipleTerms =
 test_AEFollowerConflict :: TestTree
 test_AEFollowerConflict =
   testGroup "AEFollowerConflict"
-    [ majorityNodeStatesEqual (syncClientWrite node0 (Set "x" 7))
+    [ majorityNodeStatesEqual (syncClientWriteCmd node0 (Set "x" 7))
       [ (node0, Term 4, Seq.take 10 SampleEntries.entries)
       , (node1, Term 4, SampleEntries.entries)
       , (node2, Term 4, Seq.take 10 SampleEntries.entries)
