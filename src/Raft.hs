@@ -249,17 +249,20 @@ handleEventLoop initStateMachine = do
     --
     -- This function returns 'Nothing' if the event was not valid, and returns
     -- the result of the continuation function wrapped in 'Just', otherwise.
-    withValidatedEvent :: sm -> (Event v -> RaftT sm v m a) -> RaftT sm v m (Maybe a)
-    withValidatedEvent stateMachine f = do
+    withValidatedEvent :: (Event v -> RaftT sm v m a) -> RaftT sm v m (Maybe a)
+    withValidatedEvent f = do
       event <- lift . readRaftChan =<< asks eventChan
       RaftNodeState raftNodeState <- get
       case raftNodeState of
-        NodeLeaderState _ -> do
+        NodeLeaderState ls -> do
           case event of
             MessageEvent (ClientRequestEvent (ClientRequest cid creq)) ->
               case creq of
                 ClientWriteReq (ClientCmdReq serial cmd) -> do
-                  eRes <- lift (applyLogCmd MonadicValidation stateMachine cmd)
+                  -- apply log to the tentative state machine comprised of the
+                  -- current state machine plus all commands that are waiting
+                  -- to be replicated to all followers
+                  eRes <- lift (applyLogCmd MonadicValidation (lsStateMachine ls) cmd)
                   case eRes of
                     Left err -> do
                       -- Increments the number of invalid commands seen during
@@ -269,8 +272,12 @@ handleEventLoop initStateMachine = do
                           clientFailRespAction = RespondToClient cid clientWriteRespSpec
                       handleAction clientFailRespAction
                       pure Nothing
-                    -- Don't actually do anything if validating the command succeeds
-                    Right _ -> Just <$> f event
+                    -- Update the leader cumulative state machine for future
+                    -- validation of new client write request commands
+                    Right lsStateMachine' -> do
+                      let lsNewStateMachine = ls { lsStateMachine = lsStateMachine' }
+                      put (RaftNodeState (NodeLeaderState lsNewStateMachine))
+                      Just <$> f event
                 _ -> Just <$> f event
             _ -> Just <$> f event
         _ -> Just <$> f event
@@ -281,7 +288,7 @@ handleEventLoop initStateMachine = do
       Metrics.incrEventsHandledCounter
 
       mRes <-
-        withValidatedEvent stateMachine $ \event -> do
+        withValidatedEvent $ \event -> do
           loadLogEntryTermAtAePrevLogIndex event
           raftNodeState@(RaftNodeState nodeState) <- get
 
