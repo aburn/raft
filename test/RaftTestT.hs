@@ -286,7 +286,7 @@ initTestChanMaps nids = do
 
 emptyTestStates :: NodeIds -> TestNodeStates
 emptyTestStates nids = Map.fromList $ zip (toList nids) $
-      replicate (length (nids) (TestNodeState mempty initPersistentState))
+      replicate (length nids) (TestNodeState mempty initPersistentState)
 
 initRaftTestEnvs
   :: MonadConc m
@@ -294,9 +294,10 @@ initRaftTestEnvs
   -> Map ClientId (TestClientRespChan m)
   -> TVar (STM m) TestNodeStates
   -> TVar (STM m) TestRPCMsgEventsSent
+  -> [RaftNodeConfig]
   -> [TestNodeEnv m]
 initRaftTestEnvs eventChans clientRespChans testStatesTVar testRPCMsgEventsSentTVar =
-  map (TestNodeEnv eventChans clientRespChans testStatesTVar testRPCMsgEventsSentTVar) testConfigs
+  fmap (TestNodeEnv eventChans clientRespChans testStatesTVar testRPCMsgEventsSentTVar)
 
 runTestNode
   :: ( Typeable m
@@ -306,12 +307,13 @@ runTestNode
      , MonadFail m
      , MonadRaftChan StoreCmd m
      )
-  => TestNodeEnv m
+  => NodeIds
+  -> TestNodeEnv m
   -> m ()
-runTestNode testEnv =
+runTestNode  nids testEnv =
     runRaftTestT testEnv $ do
       raftEnv <- initializeRaftEnv eventChan dummyTimer dummyTimer (testRaftNodeConfig testEnv) NoLogs
-      runRaftT (initRaftNodeState (Set.fromList [node0, node1, node2])) raftEnv $
+      runRaftT (initRaftNodeState nids) raftEnv $
         handleEventLoop (mempty :: Store)
   where
     nid = raftConfigNodeId (testRaftNodeConfig testEnv)
@@ -327,9 +329,10 @@ forkTestNodes
      , MonadRaftChan StoreCmd m
      )
   => [TestNodeEnv m]
+  -> NodeIds
   -> m [ThreadId m]
-forkTestNodes testEnvs =
-  mapM (fork . runTestNode) testEnvs
+forkTestNodes testEnvs nids =
+  mapM (fork . (runTestNode nids)) testEnvs
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -415,7 +418,7 @@ leaderElection' nid = do
 -- Test Harness and helpers
 --------------------------------------------------------------------------------
 
-type TestNodeStatesConfig =  [(NodeId, Term, Entries StoreCmd)]
+type TestNodeStatesConfig =  [(Term, Entries StoreCmd, RaftNodeConfig)]
 type TestNodesResult = (TestNodeStates, TestRPCMsgEventsSent)
 
 withRaftTestNodes
@@ -441,28 +444,26 @@ withRaftTestNodes startingNodeStates raftTest =
 
  where
   setup = do
-    (eventChans, clientRespChans) <- initTestChanMaps
+    let nodeConfigs = genNodes 3
+    (eventChans, clientRespChans) <- initTestChanMaps (nodeIds nodeConfigs)
     testNodeStatesTVar <- atomically $ newTVar startingNodeStates
     testRPCMsgEventsSentTVar <- atomically $ newTVar []
     let testNodeEnvs =
-          initRaftTestEnvs eventChans clientRespChans testNodeStatesTVar testRPCMsgEventsSentTVar
-    tids <- forkTestNodes testNodeEnvs
+          initRaftTestEnvs eventChans clientRespChans testNodeStatesTVar testRPCMsgEventsSentTVar nodeConfigs
+    tids <- forkTestNodes testNodeEnvs (nodeIds nodeConfigs)
     pure (tids, (eventChans, clientRespChans, testNodeStatesTVar, testRPCMsgEventsSentTVar))
   teardown = mapM_ killThread . fst
 
 initTestStates :: TestNodeStatesConfig -> TestNodeStates
-initTestStates startingValues =
-  foldl adjustTestStates emptyTestStates startingValues
+initTestStates startingValues = Map.fromList $ fmap gen startingValues
  where
-  adjustTestStates nodeState (node, term, entries) =
-    Map.adjust (adjustSingle entries term) node nodeState
-
-  adjustSingle
-    :: Entries StoreCmd -> Term -> TestNodeState -> TestNodeState
-  adjustSingle entries term nodeState = nodeState
-    { testNodeLog             = entries
-    , testNodePersistentState = PersistentState
-      { currentTerm = term
-      , votedFor    = Nothing
+  gen (term, entries, nodeConfig) =
+    ( raftConfigNodeId nodeConfig
+    , TestNodeState
+      { testNodeLog             = entries
+      , testNodePersistentState = PersistentState
+        { currentTerm = term
+        , votedFor    = Nothing
+        }
       }
-    }
+    )
