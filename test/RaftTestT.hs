@@ -274,19 +274,19 @@ runRaftTestClientT cid chan chans rtcm = do
 
 --------------------------------------------------------------------------------
 
-initTestChanMaps :: MonadConc m => m (Map NodeId (TestEventChan m), Map ClientId (TestClientRespChan m))
-initTestChanMaps = do
+initTestChanMaps :: MonadConc m => NodeIds -> m (Map NodeId (TestEventChan m), Map ClientId (TestClientRespChan m))
+initTestChanMaps nids = do
   eventChans <-
-    Map.fromList . zip (toList nodeIds) <$>
-      atomically (replicateM (length nodeIds) newTChan)
+    Map.fromList . zip (toList nids) <$>
+      atomically (replicateM (length nids) newTChan)
   clientRespChans <-
     Map.fromList . zip [client0] <$>
       atomically (replicateM 1 newTChan)
   pure (eventChans, clientRespChans)
 
-emptyTestStates :: TestNodeStates
-emptyTestStates = Map.fromList $ zip (toList nodeIds) $
-      replicate (length nodeIds) (TestNodeState mempty initPersistentState)
+emptyTestStates :: NodeIds -> TestNodeStates
+emptyTestStates nids = Map.fromList $ zip (toList nids) $
+      replicate (length (nids) (TestNodeState mempty initPersistentState))
 
 initRaftTestEnvs
   :: MonadConc m
