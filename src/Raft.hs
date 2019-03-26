@@ -111,7 +111,6 @@ import Control.Monad.Fail
 import Control.Monad.Catch
 
 import qualified Data.Map as Map
-import qualified Data.Text as T
 import Data.Serialize (Serialize)
 import Data.Sequence (Seq(..), singleton)
 import Data.Time.Clock.System (getSystemTime)
@@ -237,7 +236,6 @@ handleEventLoop
   => sm
   -> RaftT sm v m ()
 handleEventLoop initStateMachine = do
-    setInitLastLogEntry
     ePersistentState <- lift readPersistentState
     case ePersistentState of
       Left err -> throwM err
@@ -288,6 +286,7 @@ handleEventLoop initStateMachine = do
     handleEventLoop' :: sm -> PersistentState -> RaftT sm v m ()
     handleEventLoop' stateMachine persistentState = do
 
+      setInitLastLogEntry
       Metrics.incrEventsHandledCounter
 
       mRes <-
@@ -364,8 +363,8 @@ handleEventLoop initStateMachine = do
 
 -- | Handles all actions produced by the main 'handleEventLoop'' call.
 handleActions
-  :: ( Show v, Show sm, Show (Action sm v), Show (RaftLogError m), Typeable m
-     , MonadIO m, MonadRaft v m, MonadThrow m, MonadMask m
+  :: ( Show v, Serialize v, Show sm, Show (Action sm v), Show (RaftLogError m)
+     , Typeable m, MonadIO m, MonadRaft v m, MonadThrow m, MonadMask m
      , RaftStateMachine m sm v
      , RaftSendRPC m v
      , RaftSendClient m sm v
@@ -379,8 +378,8 @@ handleActions actions = do
 
 handleAction
   :: forall sm v m.
-     ( Show v, Show sm, Show (Action sm v), Show (RaftLogError m), Typeable m
-     , MonadIO m, MonadRaft v m, MonadThrow m
+     ( Show v, Serialize v, Show sm, Show (Action sm v)
+     , Show (RaftLogError m), Typeable m, MonadIO m, MonadRaft v m, MonadThrow m
      , RaftStateMachine m sm v
      , RaftSendRPC m v
      , RaftSendClient m sm v
@@ -413,11 +412,13 @@ handleAction action = do
       eRes <- lift (updateLog entries)
       case eRes of
         Left err -> logAndPanic (show err)
-        Right midx -> do
+        Right mLastLogEntry -> do
           -- Update the last log entry index metrics
-          case midx of
+          case mLastLogEntry of
             Nothing -> pure ()
-            Just idx -> Metrics.setLastLogEntryIndexGauge idx
+            Just lastLogEntry -> do
+              Metrics.setLastLogEntryIndexGauge (lastLogEntryIndex lastLogEntry)
+              Metrics.setLastLogEntryHashLabel lastLogEntry
           -- Update the last log entry data
           modify $ \(RaftNodeState ns) ->
             RaftNodeState (setLastLogEntry ns entries)
