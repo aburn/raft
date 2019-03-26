@@ -111,7 +111,6 @@ membershipChange = do
     Left ldr <- syncClientRead node0
     pure ldr
 
-
 newLeaderElection :: RaftTestClientM CurrentLeader
 newLeaderElection = do
     leaderElection node0

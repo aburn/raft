@@ -418,7 +418,7 @@ leaderElection' nid = do
 -- Test Harness and helpers
 --------------------------------------------------------------------------------
 
-type TestNodeStatesConfig =  [(Term, Entries StoreCmd, RaftNodeConfig)]
+type TestNodeStatesConfig =  [(NodeId, Term, Entries StoreCmd)]
 type TestNodesResult = (TestNodeStates, TestRPCMsgEventsSent)
 
 withRaftTestNodes
@@ -429,7 +429,7 @@ withRaftTestNodes
      , MonadFail m
      , MonadRaftChan StoreCmd m
      )
-  => TestNodeStates
+  => TestNodeStatesConfig
   -> RaftTestClientT m a
   -> m (a, TestNodesResult)
 withRaftTestNodes startingNodeStates raftTest =
@@ -446,7 +446,7 @@ withRaftTestNodes startingNodeStates raftTest =
   setup = do
     let nodeConfigs = genNodes 3
     (eventChans, clientRespChans) <- initTestChanMaps (nodeIds nodeConfigs)
-    testNodeStatesTVar <- atomically $ newTVar startingNodeStates
+    testNodeStatesTVar <- atomically $ newTVar (initTestStates startingNodeStates)
     testRPCMsgEventsSentTVar <- atomically $ newTVar []
     let testNodeEnvs =
           initRaftTestEnvs eventChans clientRespChans testNodeStatesTVar testRPCMsgEventsSentTVar nodeConfigs
@@ -457,13 +457,12 @@ withRaftTestNodes startingNodeStates raftTest =
 initTestStates :: TestNodeStatesConfig -> TestNodeStates
 initTestStates startingValues = Map.fromList $ fmap gen startingValues
  where
-  gen (term, entries, nodeConfig) =
-    ( raftConfigNodeId nodeConfig
+  gen (nid, term, entries) =
+    ( nid
     , TestNodeState
       { testNodeLog             = entries
-      , testNodePersistentState = PersistentState
+      , testNodePersistentState = initPersistentState
         { currentTerm = term
-        , votedFor    = Nothing
         }
       }
     )
