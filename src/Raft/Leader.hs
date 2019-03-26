@@ -188,14 +188,17 @@ handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (SerialReq ser
           --mkNewLogEntry (EntryMembershipChange (Set.insert nid nids) ) serial
 
       pure ls { lsClientReqCache = lsClientReqCache' }
+
     handleMembershipChange nodeIds = do
+      -- Check
       if lastClusterChangeIndex lsClusterConfig <= lsCommitIndex
         then do
-          newLogEntry <- mkNewLogEntry (EntryMembershipChange nodeIds ) serial
+          newLogEntry <- mkNewLogEntry (EntryMembershipChange nodeIds) serial
           appendLogEntries (Empty Seq.|> newLogEntry)
           aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
           broadcast (SendAppendEntriesRPC aeData)
         else
+          -- TODO handle
           undefined
 
 

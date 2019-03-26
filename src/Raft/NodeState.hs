@@ -103,8 +103,18 @@ data NodeState (a :: Mode) v where
 
 deriving instance Show v => Show (NodeState s v)
 
+-- | Cluster Membership Changes
+-- The configuration change is complete once the EntryMembershipChange entry is committed.
+-- At this point, the leader knows that a majority of the servers in the
+-- new config have adopted the new config.
+--
+-- It also knows that any servers that have not moved to the new config
+-- can no longer form a majority of the cluster,
+-- and servers without the new config cannot be elected leader.
 data ClusterConfig = ClusterConfig
   { nodeIds :: NodeIds
+  -- ^ active cluster configuration
+  --, previousClusterConfig :: ClusterConfig
   , lastClusterChangeIndex :: Index
   -- on greater or equal than commit index, reject new cluster changes
   } deriving (Show)
