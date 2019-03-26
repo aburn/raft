@@ -417,7 +417,7 @@ handleAction action = do
           case mLastLogEntry of
             Nothing -> pure ()
             Just lastLogEntry -> do
-              Metrics.setLastLogEntryIndexGauge (lastLogEntryIndex lastLogEntry)
+              Metrics.setLastLogEntryIndexGauge lastLogEntry
               Metrics.setLastLogEntryHashLabel lastLogEntry
           -- Update the last log entry data
           modify $ \(RaftNodeState ns) ->
