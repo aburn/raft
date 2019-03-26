@@ -64,7 +64,7 @@ testConcurrentProps test expected =
     [ ("No deadlocks", deadlocksNever)
     , ("No Exceptions", exceptionsNever)
     , ("Success", alwaysTrue (== Right expected))
-    ] $ fst <$> withRaftTestNodes emptyTestStates test
+    ] $ fst <$> withRaftTestNodes emptyNodeStatesConfig test
 
 leaderElectionTest
   :: NodeId
@@ -171,9 +171,8 @@ majorityNodeStatesEqual clientTest startingStatesConfig  =
   where
     runTest :: ConcIO TestNodesResult
     runTest = do
-      let startingNodeStates = initTestStates startingStatesConfig
       (res, testNodesResult) <-
-        withRaftTestNodes startingNodeStates $ do
+        withRaftTestNodes startingStatesConfig $ do
           leaderElection node0
           clientTest
       pure testNodesResult

@@ -466,3 +466,5 @@ initTestStates startingValues = Map.fromList $ fmap gen startingValues
         }
       }
     )
+emptyNodeStatesConfig :: TestNodeStatesConfig
+emptyNodeStatesConfig = [(node0, Term 0 ,mempty), (node1, Term 0, mempty), (node2, Term 0, mempty)]
