@@ -2,6 +2,10 @@
 
 ## 0.6.0.0
 
+- Feature: Optimized (reduced) the number of RPC messages sent between leader 
+  and follower for the follower to reconcile a log disparity resulting from
+  network partitions.
+
 - API change: Added a type parameter to many internal datatypes and type
   classes, most importantly of which the `RaftT` monad transformer with which
   raft nodes are spawned.
