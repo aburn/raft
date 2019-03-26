@@ -34,13 +34,14 @@ getCommittedLogIndex (RaftNodeState (NodeFollowerState FollowerState{..})) = fsC
 getCommittedLogIndex (RaftNodeState (NodeCandidateState CandidateState{..})) = csCommitIndex
 getCommittedLogIndex (RaftNodeState (NodeLeaderState LeaderState{..})) = lsCommitIndex
 
-node0, node1, node2 :: NodeId
+node0, node1, node2, node3 :: NodeId
 node0 = "node0"
 node1 = "node1"
 node2 = "node2"
+node3 = "node3"
 
 genNodes :: Int -> [RaftNodeConfig]
-genNodes count = fmap genNode [1..count]
+genNodes count = fmap genNode [0..(count-1)]
 
 genNode :: Int -> RaftNodeConfig
 genNode i = nodeConfig

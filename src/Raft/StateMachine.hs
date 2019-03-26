@@ -75,8 +75,7 @@ applyLogEntry validation sm entry =
   case entryValue entry of
     NoValue -> pure (Right sm)
     EntryValue cmd -> applyLogCmd validation sm cmd
-    EntryStartMembershipChange _ -> pure (Right sm)
-    EntryEndMembershipChange _ -> pure (Right sm)
+    EntryMembershipChange _ -> pure (Right sm)
 
 -- | Apply a state machine command to the supplied state machine, allowing the
 -- user to specify whether or not to monadically validate the command in

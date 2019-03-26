@@ -92,7 +92,7 @@ initRaftNodeState nodeIds =
       , fsLastLogEntry = NoLogEntries
       , fsTermAtAEPrevIndex = Nothing
       , fsClientReqCache = mempty
-      , fsClusterConfig = ClusterConfig nodeIds
+      , fsClusterConfig = ClusterConfig nodeIds 0
       }
 
 -- | The volatile state of a Raft Node
@@ -105,7 +105,8 @@ deriving instance Show v => Show (NodeState s v)
 
 data ClusterConfig = ClusterConfig
   { nodeIds :: NodeIds
-  --, pendingChange ::
+  , lastClusterChangeIndex :: Index
+  -- on greater or equal than commit index, reject new cluster changes
   } deriving (Show)
 
 data FollowerState v = FollowerState

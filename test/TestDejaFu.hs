@@ -108,7 +108,9 @@ membershipChange = do
     leaderElection node0
     syncClientWrite node0 (ClientMembershipAddNode node2)
 
-    Left ldr <- syncClientRead node0
+    syncClientWrite node0 (ClientMembershipRemoveNode node1)
+
+    Left ldr <- syncClientRead node1
     pure ldr
 
 newLeaderElection :: RaftTestClientM CurrentLeader

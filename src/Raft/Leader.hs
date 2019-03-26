@@ -171,20 +171,33 @@ handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (SerialReq ser
   where
     handleNewEntry serial clientWriteReq = do
       let lsClientReqCache' = Map.insert cid (serial, Nothing) lsClientReqCache
-      newLogEntry <- case clientWriteReq of
-        ClientCmdReq cmd -> mkNewLogEntry (EntryValue cmd) serial
-        ClientMembershipAddNode nid -> do
-          nids <- askAllNodeIds
-          mkNewLogEntry (EntryStartMembershipChange (Set.insert nid nids) ) serial
-        ClientMembershipRemoveNode nid -> do
-          nids <- askAllNodeIds
-          mkNewLogEntry (EntryStartMembershipChange (Set.delete nid nids) ) serial
+      nids <- askAllNodeIds
+      case clientWriteReq of
+        ClientCmdReq cmd -> do
+          newLogEntry <- mkNewLogEntry (EntryValue cmd) serial
+          appendLogEntries (Empty Seq.|> newLogEntry)
+          aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
+          broadcast (SendAppendEntriesRPC aeData)
 
+        ClientMembershipAddNode nid -> handleMembershipChange (Set.insert nid nids)
+        ClientMembershipRemoveNode nid -> handleMembershipChange (Set.delete nid nids)
+          -- TODO check lastCommittedClusterChange is less then or equal to commit index
+          -- waiting for new node to catch up? ( send append entries )
+          -- if true, add EntryMembershipChange with new node
+          -- if false, return to client failure
+          --mkNewLogEntry (EntryMembershipChange (Set.insert nid nids) ) serial
 
-      appendLogEntries (Empty Seq.|> newLogEntry)
-      aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
-      broadcast (SendAppendEntriesRPC aeData)
       pure ls { lsClientReqCache = lsClientReqCache' }
+    handleMembershipChange nodeIds = do
+      if lastClusterChangeIndex lsClusterConfig <= lsCommitIndex
+        then do
+          newLogEntry <- mkNewLogEntry (EntryMembershipChange nodeIds ) serial
+          appendLogEntries (Empty Seq.|> newLogEntry)
+          aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
+          broadcast (SendAppendEntriesRPC aeData)
+        else
+          undefined
+
 
     mkNewLogEntry entry sn = do
       currentTerm <- currentTerm <$> get
