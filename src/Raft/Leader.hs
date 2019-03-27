@@ -189,17 +189,23 @@ handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (SerialReq ser
 
       pure ls { lsClientReqCache = lsClientReqCache' }
 
-    handleMembershipChange nodeIds = do
-      -- Check
-      if lastClusterChangeIndex lsClusterConfig <= lsCommitIndex
-        then do
-          newLogEntry <- mkNewLogEntry (EntryMembershipChange nodeIds) serial
-          appendLogEntries (Empty Seq.|> newLogEntry)
-          aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
-          broadcast (SendAppendEntriesRPC aeData)
-        else
-          -- TODO handle
+    handleMembershipChange nodeIds =
+      if canStartClusterConfigChange lsClusterConfig
+        then
           undefined
+        else
+          undefined
+      -- if lastClusterChangeIndex is less then the commit index
+      -- then the last cluster change hasn't been committed which makes it unsafe to introduce new
+      --if lastClusterChangeIndex lsClusterConfig <= lsCommitIndex
+        --then do
+          --newLogEntry <- mkNewLogEntry (EntryMembershipChange nodeIds) serial
+          --appendLogEntries (Empty Seq.|> newLogEntry)
+          --aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
+          --broadcast (SendAppendEntriesRPC aeData)
+        --else
+           -- TODO handle
+          --undefined
 
 
     mkNewLogEntry entry sn = do

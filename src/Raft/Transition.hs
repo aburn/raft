@@ -155,7 +155,7 @@ appendLogEntries entries = do
   forM_ entries $ \entry ->
     case entryValue entry of
       EntryMembershipChange nids ->
-        tellAction $ SetClusterConfigNodeIds nids (entryIndex entry)
+        tellAction $ SetUncommittedClusterConfig nids
   tellAction $ AppendLogEntries entries
 
 updateClientReqCacheFromIdx :: Index -> TransitionM sm v ()

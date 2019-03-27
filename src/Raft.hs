@@ -412,9 +412,18 @@ handleAction action = do
           -- Update the last log entry data
           modify $ \(RaftNodeState ns) ->
             RaftNodeState (setLastLogEntry ns entries)
-    SetClusterConfigNodeIds nids idx->
+    SetUncommittedClusterConfig nids ->
       modify $ \(RaftNodeState ns) ->
-            RaftNodeState (setClusterConfig ns $ ClusterConfig nids idx)
+            RaftNodeState (setClusterConfig ns $ (getClusterConfig ns) {uncommittedClusterConfig = Just nids})
+
+    MarkClusterConfigCommitted ->
+      modify $ \(RaftNodeState ns) ->
+        let clusterConfig = getClusterConfig ns
+            -- default to existing cluster config if no uncommitted cluster config exists
+            -- TODO should we panic and error here? this should the MarkClusterConfigCommitted action
+            -- should never happen when uncommittedClusterChange is Nothing
+            newConfig = fromMaybe (committedClusterConfig clusterConfig) (uncommittedClusterConfig clusterConfig)
+        in RaftNodeState (setClusterConfig ns $ clusterConfig {committedClusterConfig = newConfig, uncommittedClusterConfig = Nothing})
 
     UpdateClientReqCacheFrom idx -> do
       RaftNodeState ns <- get

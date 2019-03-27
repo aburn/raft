@@ -234,6 +234,10 @@ getClusterConfigNodeIds nodeState = fromMaybe
   (uncommittedClusterConfig clusterConfig)
   where clusterConfig = getClusterConfig nodeState
 
+-- | If a cluster change entry hasn't been committed it isn't safe to start a new cluster config change
+canStartClusterConfigChange ::  ClusterConfig -> Bool
+canStartClusterConfigChange clusterConfig = isJust $ uncommittedClusterConfig clusterConfig
+
 -- | Set the cluster config
 setClusterConfig :: NodeState ns v -> ClusterConfig -> NodeState ns v
 setClusterConfig nodeState clusterConfig =
