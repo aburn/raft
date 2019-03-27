@@ -92,7 +92,7 @@ initRaftNodeState nodeIds =
       , fsLastLogEntry = NoLogEntries
       , fsTermAtAEPrevIndex = Nothing
       , fsClientReqCache = mempty
-      , fsClusterConfig = ClusterConfig nodeIds 0
+      , fsClusterConfig = ClusterConfig nodeIds Nothing
       }
 
 -- | The volatile state of a Raft Node
@@ -104,6 +104,9 @@ data NodeState (a :: Mode) v where
 deriving instance Show v => Show (NodeState s v)
 
 -- | Cluster Membership Changes
+--
+--
+--
 -- The configuration change is complete once the EntryMembershipChange entry is committed.
 -- At this point, the leader knows that a majority of the servers in the
 -- new config have adopted the new config.
@@ -112,11 +115,10 @@ deriving instance Show v => Show (NodeState s v)
 -- can no longer form a majority of the cluster,
 -- and servers without the new config cannot be elected leader.
 data ClusterConfig = ClusterConfig
-  { nodeIds :: NodeIds
-  -- ^ active cluster configuration
-  --, previousClusterConfig :: ClusterConfig
-  , lastClusterChangeIndex :: Index
-  -- on greater or equal than commit index, reject new cluster changes
+  { committedClusterConfig :: NodeIds
+  -- ^ servers fall back to if the cluster change in the uncommitted logs gets overwritten
+  , uncommittedClusterConfig :: Maybe NodeIds
+  -- ^ :
   } deriving (Show)
 
 data FollowerState v = FollowerState
@@ -225,7 +227,14 @@ getClusterConfig nodeState =
     NodeCandidateState cs -> csClusterConfig cs
     NodeLeaderState ls -> lsClusterConfig ls
 
--- | Get the cluster config
+-- | Get uncommitted cluster change node ids, fallback to committed cluster change node ids
+getClusterConfigNodeIds :: NodeState ns v -> NodeIds
+getClusterConfigNodeIds nodeState = fromMaybe
+  (committedClusterConfig clusterConfig)
+  (uncommittedClusterConfig clusterConfig)
+  where clusterConfig = getClusterConfig nodeState
+
+-- | Set the cluster config
 setClusterConfig :: NodeState ns v -> ClusterConfig -> NodeState ns v
 setClusterConfig nodeState clusterConfig =
   case nodeState of

@@ -85,7 +85,7 @@ askNodeId = asks (raftConfigNodeId . nodeConfig)
 askAllNodeIds :: TransitionM sm v NodeIds
 askAllNodeIds = do
   RaftNodeState state <- asks nodeState
-  pure (nodeIds $ getClusterConfig state)
+  pure (getClusterConfigNodeIds state)
 
 
 -- | Returns the set of all node ids excluding the node's own id
