@@ -22,8 +22,8 @@ data Action sm v
   | MarkClusterConfigCommitted
   -- ^ set committedClusterConfig to be equal to uncommittedClusterConfig
   -- and set uncommittedClusterConfig to Nothing
-  | SetUncommittedClusterConfig NodeIds
-  -- ^ Update cluster config node ids, index is index of the entry that emitted the action
+  | SetUncommittedClusterConfig NodeIds Index
+  -- ^ Update cluster config node ids,... TODO more comments
   | RespondToClient ClientId (ClientRespSpec sm v) -- ^ Respond to client after a client request
   | ResetTimeoutTimer Timeout -- ^ Reset a timeout timer
   | UpdateClientReqCacheFrom Index -- ^ Update the client request cache from the given index onward

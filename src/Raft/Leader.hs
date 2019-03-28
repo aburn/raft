@@ -178,40 +178,27 @@ handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (SerialReq ser
           appendLogEntries (Empty Seq.|> newLogEntry)
           aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
           broadcast (SendAppendEntriesRPC aeData)
-
         ClientMembershipAddNode nid -> handleMembershipChange (Set.insert nid nids)
         ClientMembershipRemoveNode nid -> handleMembershipChange (Set.delete nid nids)
-          -- TODO check lastCommittedClusterChange is less then or equal to commit index
-          -- waiting for new node to catch up? ( send append entries )
-          -- if true, add EntryMembershipChange with new node
-          -- if false, return to client failure
-          --mkNewLogEntry (EntryMembershipChange (Set.insert nid nids) ) serial
 
       pure ls { lsClientReqCache = lsClientReqCache' }
 
     handleMembershipChange nodeIds =
       if canStartClusterConfigChange lsClusterConfig
-        then
-          undefined
+        then do
+          newLogEntry <- mkNewLogEntry (EntryMembershipChange nodeIds) serial
+          appendLogEntries (Empty Seq.|> newLogEntry)
+          aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
+          broadcast (SendAppendEntriesRPC aeData)
         else
           undefined
-      -- if lastClusterChangeIndex is less then the commit index
-      -- then the last cluster change hasn't been committed which makes it unsafe to introduce new
-      --if lastClusterChangeIndex lsClusterConfig <= lsCommitIndex
-        --then do
-          --newLogEntry <- mkNewLogEntry (EntryMembershipChange nodeIds) serial
-          --appendLogEntries (Empty Seq.|> newLogEntry)
-          --aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
-          --broadcast (SendAppendEntriesRPC aeData)
-        --else
-           -- TODO handle
-          --undefined
-
-
+          -- TODO Respond to client that a pending config change is already active, so
+          -- they can retry at a later point
+          --
     mkNewLogEntry entry sn = do
       currentTerm <- currentTerm <$> get
       let lastLogEntryIdx = lastLogEntryIndex lsLastLogEntry
-      pure $ Entry
+      pure Entry
         { entryIndex = succ lastLogEntryIdx
         , entryTerm = currentTerm
         , entryValue = entry

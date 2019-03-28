@@ -117,8 +117,8 @@ deriving instance Show v => Show (NodeState s v)
 data ClusterConfig = ClusterConfig
   { committedClusterConfig :: NodeIds
   -- ^ servers fall back to if the cluster change in the uncommitted logs gets overwritten
-  , uncommittedClusterConfig :: Maybe NodeIds
-  -- ^ :
+  , uncommittedClusterConfig :: Maybe (NodeIds, Index)
+  -- ^ TODO document this
   } deriving (Show)
 
 data FollowerState v = FollowerState
@@ -231,7 +231,7 @@ getClusterConfig nodeState =
 getClusterConfigNodeIds :: NodeState ns v -> NodeIds
 getClusterConfigNodeIds nodeState = fromMaybe
   (committedClusterConfig clusterConfig)
-  (uncommittedClusterConfig clusterConfig)
+  (fst <$> uncommittedClusterConfig clusterConfig)
   where clusterConfig = getClusterConfig nodeState
 
 -- | If a cluster change entry hasn't been committed it isn't safe to start a new cluster config change
@@ -248,7 +248,6 @@ setClusterConfig nodeState clusterConfig =
       NodeCandidateState cs { csClusterConfig = clusterConfig}
     NodeLeaderState ls ->
       NodeLeaderState ls { lsClusterConfig = clusterConfig }
-
 
 getLastLogEntryIndex :: NodeState ns v -> Index
 getLastLogEntryIndex = lastLogEntryIndex . getLastLogEntry
