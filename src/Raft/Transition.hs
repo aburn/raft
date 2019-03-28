@@ -152,10 +152,10 @@ respondClientRedir cid cl =
 
 appendLogEntries :: Show v => Seq (Entry v) -> TransitionM sm v ()
 appendLogEntries entries = do
-  forM_ entries $ \entry ->
-    case entryValue entry of
-      EntryMembershipChange nids ->
-        tellAction $ SetUncommittedClusterConfig nids (entryIndex entry)
+  --forM_ entries $ \entry ->
+    --case entryValue entry of
+      --EntryMembershipChange nids ->
+        --tellAction $ SetUncommittedClusterConfig nids (entryIndex entry)
   tellAction $ AppendLogEntries entries
 
 updateClientReqCacheFromIdx :: Index -> TransitionM sm v ()

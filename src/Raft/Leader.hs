@@ -187,6 +187,7 @@ handleClientWriteRequest (NodeLeaderState ls@LeaderState{..}) cid (SerialReq ser
       if canStartClusterConfigChange lsClusterConfig
         then do
           newLogEntry <- mkNewLogEntry (EntryMembershipChange nodeIds) serial
+          tellAction $ SetUncommittedClusterConfig nodeIds (entryIndex newLogEntry)
           appendLogEntries (Empty Seq.|> newLogEntry)
           aeData <- mkAppendEntriesData ls (FromClientWriteReq newLogEntry)
           broadcast (SendAppendEntriesRPC aeData)
@@ -217,6 +218,9 @@ incrCommitIndex leaderState@LeaderState{..} = do
     currentTerm <- currentTerm <$> get
     if majorityGreaterThanN && (lastEntryTerm == currentTerm)
       then do
+        when shouldMarkConfigChangeCommitted $
+          tellAction MarkClusterConfigCommitted
+
         logDebug $ "Incrementing commit index to: " <> show n
         incrCommitIndex leaderState { lsCommitIndex = n }
       else do
@@ -224,6 +228,14 @@ incrCommitIndex leaderState@LeaderState{..} = do
         pure leaderState
   where
     n = lsCommitIndex + 1
+    -- | If uncommitted config change index is less then or equal to commit index,
+    -- we should mark it as committed
+    shouldMarkConfigChangeCommitted :: Bool
+    shouldMarkConfigChangeCommitted =
+      maybe False (<= n) $ getUncommittedClusterConfigIndex lsClusterConfig
+
+
+
 
     -- Note: The majority should include the leader, which is not accounted for
     -- in the lsMatchIndex map, thus, we should add one to both the number of

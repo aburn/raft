@@ -238,6 +238,10 @@ getClusterConfigNodeIds nodeState = fromMaybe
 canStartClusterConfigChange ::  ClusterConfig -> Bool
 canStartClusterConfigChange clusterConfig = isJust $ uncommittedClusterConfig clusterConfig
 
+-- | Get uncommitted cluster config change index
+getUncommittedClusterConfigIndex :: ClusterConfig -> Maybe Index
+getUncommittedClusterConfigIndex cc = snd <$> uncommittedClusterConfig cc
+
 -- | Set the cluster config
 setClusterConfig :: NodeState ns v -> ClusterConfig -> NodeState ns v
 setClusterConfig nodeState clusterConfig =
