@@ -17,6 +17,8 @@ module Raft.Candidate (
   , handleTimeout
   , handleClientReadRequest
   , handleClientWriteRequest
+  , becomeLeader
+  , mkNoopEntry
 ) where
 
 import Protolude
@@ -70,13 +72,22 @@ handleAppendEntriesResponse :: RPCHandler 'Candidate sm AppendEntriesResponse v
 handleAppendEntriesResponse (NodeCandidateState candidateState) _sender _appendEntriesResp =
   pure $ candidateResultState Noop candidateState
 
-handleRequestVote :: RPCHandler 'Candidate sm RequestVote v
+handleRequestVote
+  :: forall sm v. (Show sm, Show v, S.Serialize v)
+  => RPCHandler 'Candidate sm RequestVote v
 handleRequestVote ns@(NodeCandidateState candidateState@CandidateState{..}) sender requestVote@RequestVote{..} = do
   currentTerm <- gets currentTerm
-  send sender $
-    SendRequestVoteResponseRPC $
-      RequestVoteResponse currentTerm False
-  pure $ candidateResultState Noop candidateState
+  cNodeIds <- asks (raftConfigNodeIds . nodeConfig)
+  logDebug $ show cNodeIds
+  case Set.size cNodeIds of
+    0 -> do
+      logDebug "becomeLeader"
+      leaderResultState BecomeLeader <$> becomeLeader candidateState
+    _ -> do
+      send sender $
+        SendRequestVoteResponseRPC $
+          RequestVoteResponse currentTerm False
+      pure $ candidateResultState Noop candidateState
 
 -- | Candidates should not respond to 'RequestVoteResponse' messages.
 handleRequestVoteResponse
@@ -93,55 +104,61 @@ handleRequestVoteResponse (NodeCandidateState candidateState@CandidateState{..})
             then do
               let newCandidateState = candidateState { csVotes = newCsVotes }
               pure $ candidateResultState Noop (newCandidateState :: CandidateState sm v)
-            else leaderResultState BecomeLeader <$> becomeLeader
+            else leaderResultState BecomeLeader <$> becomeLeader candidateState
 
   where
     hasMajority :: Set a -> Set b -> Bool
     hasMajority nids votes =
       Set.size votes >= Set.size nids `div` 2 + 1
 
-    mkNoopEntry :: TransitionM sm v (Entry v)
-    mkNoopEntry = do
-      let lastLogEntryIdx = lastLogEntryIndex csLastLogEntry
-      currTerm <- gets currentTerm
-      nid <- asks (raftConfigNodeId . nodeConfig)
-      pure Entry
-        { entryIndex = succ lastLogEntryIdx
-        , entryTerm  = currTerm
-        , entryValue = NoValue
-        , entryIssuer = LeaderIssuer (LeaderId nid)
-        , entryPrevHash = hashLastLogEntry csLastLogEntry
-        }
+mkNoopEntry
+  :: S.Serialize v
+  => LastLogEntry v
+  -> TransitionM sm v (Entry v)
+mkNoopEntry csLastLogEntry = do
+  let lastLogEntryIdx = lastLogEntryIndex csLastLogEntry
+  currTerm <- gets currentTerm
+  nid <- asks (raftConfigNodeId . nodeConfig)
+  pure Entry
+    { entryIndex = succ lastLogEntryIdx
+    , entryTerm  = currTerm
+    , entryValue = NoValue
+    , entryIssuer = LeaderIssuer (LeaderId nid)
+    , entryPrevHash = hashLastLogEntry csLastLogEntry
+    }
 
-    becomeLeader :: TransitionM sm v (LeaderState sm v)
-    becomeLeader = do
-      currentTerm <- gets currentTerm
-      -- In order for leaders to know which entries have been replicated or not,
-      -- a "no op" log entry must be created at the start of the term. See
-      -- "Client ineraction", Section 8, of https://raft.github.io/raft.pdf.
-      noopEntry <- mkNoopEntry
-      appendLogEntries (Seq.Empty Seq.|> noopEntry)
-      broadcast $ SendAppendEntriesRPC
-        AppendEntriesData
-          { aedTerm = currentTerm
-          , aedLeaderCommit = csCommitIndex
-          , aedEntriesSpec = FromNewLeader noopEntry
-          }
-      resetHeartbeatTimeout
-      followerNodeIds <- Set.toList <$> askPeerNodeIds
-      let lastLogEntryIdx = entryIndex noopEntry
-      stateMachine <- asks stateMachine
-      pure LeaderState
-       { lsCommitIndex = csCommitIndex
-       , lsLastApplied = csLastApplied
-       , lsNextIndex = Map.fromList $ (,lastLogEntryIdx) <$> followerNodeIds
-       , lsMatchIndex = Map.fromList $ (,index0) <$> followerNodeIds
-       , lsLastLogEntry = csLastLogEntry
-       , lsReadReqsHandled = 0
-       , lsReadRequest = mempty
-       , lsClientReqCache = csClientReqCache
-       , lsStateMachine = stateMachine
-       }
+becomeLeader
+  :: (Show sm, Show v, S.Serialize v)
+  => CandidateState sm v
+  -> TransitionM sm v (LeaderState sm v)
+becomeLeader candidateState@CandidateState{..} = do
+  currentTerm <- gets currentTerm
+  -- In order for leaders to know which entries have been replicated or not,
+  -- a "no op" log entry must be created at the start of the term. See
+  -- "Client interaction", Section 8, of https://raft.github.io/raft.pdf.
+  noopEntry <- mkNoopEntry csLastLogEntry
+  appendLogEntries (Seq.Empty Seq.|> noopEntry)
+  broadcast $ SendAppendEntriesRPC
+    AppendEntriesData
+      { aedTerm = currentTerm
+      , aedLeaderCommit = csCommitIndex
+      , aedEntriesSpec = FromNewLeader noopEntry
+      }
+  resetHeartbeatTimeout
+  followerNodeIds <- Set.toList <$> askPeerNodeIds
+  let lastLogEntryIdx = entryIndex noopEntry
+  stateMachine <- asks stateMachine
+  pure LeaderState
+   { lsCommitIndex = csCommitIndex
+   , lsLastApplied = csLastApplied
+   , lsNextIndex = Map.fromList $ (,lastLogEntryIdx) <$> followerNodeIds
+   , lsMatchIndex = Map.fromList $ (,index0) <$> followerNodeIds
+   , lsLastLogEntry = csLastLogEntry
+   , lsReadReqsHandled = 0
+   , lsReadRequest = mempty
+   , lsClientReqCache = csClientReqCache
+   , lsStateMachine = stateMachine
+   }
 
 handleTimeout :: TimeoutHandler 'Candidate sm v
 handleTimeout (NodeCandidateState candidateState@CandidateState{..}) timeout =
