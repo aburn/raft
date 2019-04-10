@@ -77,17 +77,10 @@ handleRequestVote
   => RPCHandler 'Candidate sm RequestVote v
 handleRequestVote ns@(NodeCandidateState candidateState@CandidateState{..}) sender requestVote@RequestVote{..} = do
   currentTerm <- gets currentTerm
-  cNodeIds <- asks (raftConfigNodeIds . nodeConfig)
-  logDebug $ show cNodeIds
-  case Set.size cNodeIds of
-    0 -> do
-      logDebug "becomeLeader"
-      leaderResultState BecomeLeader <$> becomeLeader candidateState
-    _ -> do
-      send sender $
-        SendRequestVoteResponseRPC $
-          RequestVoteResponse currentTerm False
-      pure $ candidateResultState Noop candidateState
+  send sender $
+    SendRequestVoteResponseRPC $
+      RequestVoteResponse currentTerm False
+  pure $ candidateResultState Noop candidateState
 
 -- | Candidates should not respond to 'RequestVoteResponse' messages.
 handleRequestVoteResponse
@@ -160,13 +153,22 @@ becomeLeader candidateState@CandidateState{..} = do
    , lsStateMachine = stateMachine
    }
 
-handleTimeout :: TimeoutHandler 'Candidate sm v
+handleTimeout
+  :: (S.Serialize v)
+  => TimeoutHandler 'Candidate sm v
 handleTimeout (NodeCandidateState candidateState@CandidateState{..}) timeout =
   case timeout of
     HeartbeatTimeout -> pure $ candidateResultState Noop candidateState
-    ElectionTimeout ->
-      candidateResultState RestartElection <$>
-        startElection csCommitIndex csLastApplied csLastLogEntry csClientReqCache
+    ElectionTimeout -> do
+      cNodeIds <- asks (raftConfigNodeIds . nodeConfig)
+
+      case Set.size cNodeIds of
+        1 -> do
+          logDebug "becomeLeader"
+          leaderResultState BecomeLeader <$> becomeLeader candidateState
+        _ -> do
+          candidateResultState RestartElection <$>
+            startElection csCommitIndex csLastApplied csLastLogEntry csClientReqCache
 
 handleClientReadRequest :: ClientReqHandler 'Candidate ClientReadReq sm v
 handleClientReadRequest = handleClientRequest
