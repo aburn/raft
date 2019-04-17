@@ -45,7 +45,7 @@ import Control.Monad.Trans.Class
 import qualified Control.Monad.Conc.Class as Conc
 
 import Control.Concurrent.Classy.STM.TChan
-
+import Katip (LogEnv, Katip(..))
 import Raft.Config
 import Raft.Event
 import Raft.Logging
@@ -131,6 +131,7 @@ data RaftEnv sm v m = RaftEnv
   , resetHeartbeatTimer :: m ()
   , raftNodeConfig :: RaftNodeConfig
   , raftNodeLogCtx :: LogCtx (RaftT sm v m)
+  , raftNodeLogEnv :: LogEnv
   , raftNodeMetrics :: Metrics.Metrics
   }
 
@@ -157,6 +158,13 @@ instance Monad m => RaftLogger sm v (RaftT sm v m) where
   loggerCtx = do
     raftNodeState :: RaftNodeState sm v <- get
     (,) <$> asks (raftConfigNodeId . raftNodeConfig) <*> pure raftNodeState
+
+instance MonadIO m => Katip (RaftT sm v m) where
+    getLogEnv = asks raftNodeLogEnv
+      --raftNodeState :: RaftNodeState sm v <- asks
+      --(,) <$> asks (raftConfigNodeId . raftNodeConfig) <*> pure raftNodeState
+
+
 
 instance Monad m => Metrics.MonadMetrics (RaftT sm v m) where
   getMetrics = asks raftNodeMetrics

@@ -55,6 +55,7 @@ dependencies:
 - monad-metrics
 - ekg
 - ekg-core
+- katip
 
 default-extensions:
   NoImplicitPrelude
