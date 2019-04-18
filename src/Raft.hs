@@ -625,7 +625,9 @@ handleLogs
   -> RaftT sm v m ()
 handleLogs logs = do
   logCtx <- asks raftNodeLogCtx
-  mapM_ (logToDest logCtx) logs
+  pure ()
+  -- TODO print logs from pure
+  --mapM_ (logToDest logCtx) logs
 
 ------------------------------------------------------------------------------
 -- Event Producers

@@ -132,10 +132,8 @@ data RaftEnv sm v m = RaftEnv
   , resetHeartbeatTimer :: m ()
   , raftNodeConfig :: RaftNodeConfig
   , raftNodeLogCtx :: LogCtx (RaftT sm v m)
-  , katipLogEnv :: Katip.LogEnv
-  , katipContext   :: Katip.LogContexts
-  , katipNamespace :: Katip.Namespace
   , raftNodeMetrics :: Metrics.Metrics
+  , katipEnv :: KatipEnv
   }
 
 newtype RaftT sm v m a = RaftT
@@ -163,15 +161,15 @@ instance Monad m => RaftLogger sm v (RaftT sm v m) where
     (,) <$> asks (raftConfigNodeId . raftNodeConfig) <*> pure raftNodeState
 
 instance MonadIO m => Katip.Katip (RaftT sm v m) where
-    getLogEnv = asks katipLogEnv
-    localLogEnv f (RaftT m) = RaftT (local (\s -> s { katipLogEnv = f (katipLogEnv s)}) m)
+    getLogEnv = asks $ katipLogEnv . katipEnv
+    --localLogEnv f (RaftT m) = RaftT (local (\s -> s { katipLogEnv = f (katipLogEnv s)}) m)
 
 
 instance MonadIO m => Katip.KatipContext (RaftT sm v m) where
-  getKatipContext = asks katipContext
-  localKatipContext f (RaftT m) = RaftT (local (\s -> s { katipContext = f (katipContext s)}) m)
-  getKatipNamespace = asks katipNamespace
-  localKatipNamespace f (RaftT m) = RaftT (local (\s -> s { katipNamespace = f (katipNamespace s)}) m)
+  getKatipContext = asks $ katipContext . katipEnv
+  --localKatipContext f (RaftT m) = RaftT (local (\s -> s { katipContext = f (katipContext s)}) m)
+  getKatipNamespace = asks $ katipNamespace . katipEnv
+  --localKatipNamespace f (RaftT m) = RaftT (local (\s -> s { katipNamespace = f (katipNamespace s)}) m)
 
 
 instance Monad m => Metrics.MonadMetrics (RaftT sm v m) where
@@ -198,9 +196,11 @@ initializeRaftEnv eventChan resetElectionTimer resetHeartbeatTimer nodeConfig lo
     , resetHeartbeatTimer = resetHeartbeatTimer
     , raftNodeConfig = nodeConfig
     , raftNodeLogCtx = logCtx
-    , katipLogEnv = logEnv
-    , katipContext = mempty
-    , katipNamespace = mempty
+    , katipEnv = KatipEnv {
+        katipLogEnv = logEnv
+      , katipContext = mempty
+      , katipNamespace = mempty
+    }
     , raftNodeMetrics = metrics
     }
 

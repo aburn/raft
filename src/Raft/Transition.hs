@@ -16,7 +16,7 @@ import Protolude hiding (pass)
 
 import Control.Arrow ((&&&))
 import Control.Monad.RWS.Strict
-
+import Katip
 import qualified Data.Set as Set
 
 import Raft.Action
@@ -30,6 +30,7 @@ import Raft.NodeState
 import Raft.RPC
 import Raft.Types
 import Raft.Logging (RaftLogger, runRaftLoggerT, RaftLoggerT(..), LogMsg)
+import Raft.Logging1
 import qualified Raft.Logging as Logging
 
 
@@ -48,6 +49,7 @@ data TransitionEnv sm v = TransitionEnv
   , stateMachine :: sm
   , nodeState :: RaftNodeState sm v
   , nodeMetrics :: RaftNodeMetrics
+  , katipEnv :: KatipEnv
   }
 
 newtype TransitionM sm v a = TransitionM
@@ -69,6 +71,11 @@ instance MonadState PersistentState (TransitionM sm v) where
 
 instance RaftLogger sm v (RWS (TransitionEnv sm v) [Action sm v] PersistentState) where
   loggerCtx = asks ((raftConfigNodeId . nodeConfig) &&& nodeState)
+
+instance Katip.Katip (TransitionM sm v) where
+    getLogEnv = asks $ katipLogEnv . katipEnv
+    --localLogEnv f (RaftT m) = RaftT (local (\s -> s { katipLogEnv = f (katipLogEnv s)}) m)
+
 
 runTransitionM
   :: TransitionEnv sm v

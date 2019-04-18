@@ -14,6 +14,12 @@ import Katip.Format.Time (formatAsLogTime)
 
 import Raft.Logging
 
+data KatipEnv = KatipEnv {
+    katipLogEnv :: Katip.LogEnv
+  , katipContext   :: Katip.LogContexts
+  , katipNamespace :: Katip.Namespace
+}
+
 emptyLogEnv :: LogEnv
 emptyLogEnv = LogEnv "localhost" 0 "Raft" "" getCurrentTime Map.empty
 

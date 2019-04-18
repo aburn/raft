@@ -29,7 +29,7 @@ import Raft.Persistent
 import Raft.Log
 import Raft.Transition
 import Raft.Types
-
+import qualified Katip
 --------------------------------------------------------------------------------
 -- Follower
 --------------------------------------------------------------------------------
@@ -42,6 +42,8 @@ import Raft.Types
 handleAppendEntries :: forall v sm. Show v => RPCHandler 'Follower sm (AppendEntries v) v
 handleAppendEntries ns@(NodeFollowerState fs) sender ae@AppendEntries{..} = do
   PersistentState{..} <- get
+  Katip.logMsg "" Katip.InfoS $ "asd"
+
   let status = shouldApplyAppendEntries currentTerm fs ae
   newFollowerState <-
     case status of

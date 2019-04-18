@@ -79,52 +79,13 @@ mkLogMsgData msg = do
 
 instance RaftLogger sm v m => RaftLogger sm v (RaftLoggerT sm v m) where
   loggerCtx = lift loggerCtx
-
---------------------------------------------------------------------------------
--- Logging with IO
---------------------------------------------------------------------------------
-
-logToDest :: MonadIO m => LogCtx m -> LogMsg -> m ()
-logToDest LogCtx{..} logMsg = do
-  let msgSeverity = severity logMsg
-  case logCtxDest of
-    LogStdout -> if msgSeverity >= logCtxSeverity
-                    then liftIO $ putText (logMsgToText logMsg)
-                    else pure ()
-    LogFile fp -> if msgSeverity >= logCtxSeverity
-                    then liftIO $ appendFile fp (logMsgToText logMsg <> "\n")
-                    else pure ()
-logToDest NoLogs _ = pure ()
-
-logToStdout :: MonadIO m => Severity -> LogMsg -> m ()
-logToStdout s = logToDest $ LogCtx LogStdout s
-
-logToFile :: MonadIO m => FilePath -> Severity -> LogMsg -> m ()
-logToFile fp s = logToDest $ LogCtx (LogFile fp) s
-
-logWithSeverityIO :: forall m sm v. (RaftLogger sm v m, MonadIO m) => Severity -> LogCtx m -> Text -> m ()
-logWithSeverityIO s logCtx msg = do
-  logMsgData <- mkLogMsgData msg
-  sysTime <- liftIO getSystemTime
-  let logMsg = LogMsg (Just sysTime) s logMsgData
-  logToDest logCtx logMsg
-
-logInfoIO :: (RaftLogger sm v m, MonadIO m) => LogCtx m -> Text -> m ()
-logInfoIO = logWithSeverityIO Info
-
-logDebugIO :: (RaftLogger sm v m, MonadIO m) => LogCtx m -> Text -> m ()
-logDebugIO = logWithSeverityIO Debug
-
-logCriticalIO :: (RaftLogger sm v m, MonadIO m) => LogCtx m -> Text -> m ()
-logCriticalIO = logWithSeverityIO Critical
-
 --------------------------------------------------------------------------------
 -- Pure Logging
 --------------------------------------------------------------------------------
 
 newtype RaftLoggerT sm v m a = RaftLoggerT {
     unRaftLoggerT :: StateT [LogMsg] m a
-  } deriving (Functor, Applicative, Monad, MonadState [LogMsg], MonadTrans)
+  } deriving (Functor, Applicative, Monad, MonadState [LogMsg], MonadTrans, MonadIO)
 
 runRaftLoggerT
   :: Monad m
@@ -165,5 +126,5 @@ logAndPanic msg = do
 
 logAndPanicIO :: (RaftLogger sm v m, MonadIO m) => LogCtx m -> Text -> m a
 logAndPanicIO logCtx msg = do
-  logCriticalIO logCtx msg
+  --logCriticalIO logCtx msg
   panic ("logAndPanicIO: " <> msg)
