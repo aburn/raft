@@ -11,6 +11,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
+{-# LANGUAGE TemplateHaskell            #-}
 module Raft
   (
   -- * State machine type class
@@ -115,6 +116,7 @@ import Data.Serialize (Serialize)
 import Data.Sequence (Seq(..), singleton)
 import Data.Time.Clock.System (getSystemTime)
 
+import qualified Katip (logTM, Severity(..))
 import Raft.Action
 import Raft.Client
 import Raft.Config
@@ -186,6 +188,7 @@ runRaftNode nodeConfig@RaftNodeConfig{..} optConfig logCtx initStateMachine = do
 
     logInfo ("Initialized election timer with seed " <> show timerSeed <> "...")
 
+    $(Katip.logTM) Katip.WarningS"Started"
     -- These event producers need access to logging, thus they live in RaftT
     --
     -- Note: Changing the roles of these event producers (the strings passed as
@@ -298,6 +301,7 @@ handleEventLoop initStateMachine = do
           Metrics.setCommitIndexGauge (getCommitIndex nodeState)
           numEventsInChan <- Metrics.getRaftNodeNumEventsInChan
 
+          $(Katip.logTM) Katip.InfoS "Started"
           logDebug $ "[# Events in Chan]: " <> show numEventsInChan
           logDebug $ "[Event]: " <> show event
           logDebug $ "[NodeState]: " <> show raftNodeState

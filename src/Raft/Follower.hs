@@ -20,7 +20,7 @@ module Raft.Follower (
 import Protolude
 
 import Data.Sequence (Seq(..))
-
+import Katip (logTM, Severity(..))
 import Raft.Action
 import Raft.NodeState
 import Raft.RPC
@@ -43,7 +43,6 @@ import Raft.Types
 handleAppendEntries :: forall v sm. Show v => RPCHandler 'Follower sm (AppendEntries v) v
 handleAppendEntries ns@(NodeFollowerState fs) sender ae@AppendEntries{..} = do
   PersistentState{..} <- get
-
   let status = shouldApplyAppendEntries currentTerm fs ae
   newFollowerState <-
     case status of

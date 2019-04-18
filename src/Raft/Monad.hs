@@ -44,8 +44,9 @@ import Control.Monad.Fail
 import Control.Monad.Trans.Class
 import qualified Control.Monad.Conc.Class as Conc
 
+import qualified System.IO as IO
 import Control.Concurrent.Classy.STM.TChan
-import Katip (LogEnv, Katip(..))
+import Katip (LogEnv, Katip(..), KatipContext(..),Namespace, LogContexts, registerScribe, defaultScribeSettings, initLogEnv, Severity(..), Verbosity(..), mkHandleScribe, ColorStrategy(..))
 import Raft.Config
 import Raft.Event
 import Raft.Logging
@@ -132,6 +133,8 @@ data RaftEnv sm v m = RaftEnv
   , raftNodeConfig :: RaftNodeConfig
   , raftNodeLogCtx :: LogCtx (RaftT sm v m)
   , raftNodeLogEnv :: LogEnv
+  , katipContext   :: LogContexts
+  , katipNamespace :: Namespace
   , raftNodeMetrics :: Metrics.Metrics
   }
 
@@ -161,13 +164,20 @@ instance Monad m => RaftLogger sm v (RaftT sm v m) where
 
 instance MonadIO m => Katip (RaftT sm v m) where
     getLogEnv = asks raftNodeLogEnv
-      --raftNodeState :: RaftNodeState sm v <- asks
-      --(,) <$> asks (raftConfigNodeId . raftNodeConfig) <*> pure raftNodeState
 
 
+instance MonadIO m => KatipContext (RaftT sm v m) where
+  getKatipContext   = asks katipContext
+  getKatipNamespace = asks katipNamespace
 
 instance Monad m => Metrics.MonadMetrics (RaftT sm v m) where
   getMetrics = asks raftNodeMetrics
+
+defaultLogEnv :: IO LogEnv
+defaultLogEnv = do
+    handleScribe <- mkHandleScribe ColorIfTerminal IO.stdout DebugS V2
+    env <- initLogEnv "servant" "production"
+    registerScribe "stdout" handleScribe defaultScribeSettings env
 
 initializeRaftEnv
   :: MonadIO m
@@ -179,12 +189,14 @@ initializeRaftEnv
   -> m (RaftEnv sm v m)
 initializeRaftEnv eventChan resetElectionTimer resetHeartbeatTimer nodeConfig logCtx = do
   metrics <- liftIO Metrics.initialize
+  logEnv <- liftIO defaultLogEnv
   pure RaftEnv
     { eventChan = eventChan
     , resetElectionTimer = resetElectionTimer
     , resetHeartbeatTimer = resetHeartbeatTimer
     , raftNodeConfig = nodeConfig
     , raftNodeLogCtx = logCtx
+    , raftNodeLogEnv = logEnv
     , raftNodeMetrics = metrics
     }
 
