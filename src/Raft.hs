@@ -116,7 +116,7 @@ import Data.Serialize (Serialize)
 import Data.Sequence (Seq(..), singleton)
 import Data.Time.Clock.System (getSystemTime)
 
-import qualified Katip (logTM, Severity(..))
+import qualified Katip
 import Raft.Action
 import Raft.Client
 import Raft.Config
@@ -177,18 +177,17 @@ runRaftNode nodeConfig@RaftNodeConfig{..} optConfig logCtx initStateMachine = do
 
   raftEnv <- initializeRaftEnv eventChan resetElectionTimer resetHeartbeatTimer nodeConfig logCtx
   runRaftT initRaftNodeState raftEnv $ do
+    Katip.katipAddNamespace "Startup" $ do
+      -- Fork the monitoring server for metrics
+      case metricsPort of
+        Nothing -> pure ()
+        Just port -> do
+          logInfo ("Forking metrics server on port " <> show port <> "...")
+          metricsStore <- Metrics.getMetricsStore
+          void $ liftIO (EKG.forkServerWith metricsStore "localhost" (fromIntegral port))
 
-    -- Fork the monitoring server for metrics
-    case metricsPort of
-      Nothing -> pure ()
-      Just port -> do
-        logInfo ("Forking metrics server on port " <> show port <> "...")
-        metricsStore <- Metrics.getMetricsStore
-        void $ liftIO (EKG.forkServerWith metricsStore "localhost" (fromIntegral port))
+      logInfo ("Initialized election timer with seed " <> show timerSeed <> "...")
 
-    logInfo ("Initialized election timer with seed " <> show timerSeed <> "...")
-
-    $(Katip.logTM) Katip.WarningS"Started"
     -- These event producers need access to logging, thus they live in RaftT
     --
     -- Note: Changing the roles of these event producers (the strings passed as
@@ -200,8 +199,11 @@ runRaftNode nodeConfig@RaftNodeConfig{..} optConfig logCtx initStateMachine = do
       electionTimeoutTimer electionTimer
     raftFork (CustomThreadRole "Heartbeat Timeout Timer") $
       heartbeatTimeoutTimer heartbeatTimer
-    raftFork RPCHandler rpcHandler
-    raftFork ClientRequestHandler clientReqHandler
+
+    Katip.katipAddNamespace "RPCHandler" $
+      raftFork RPCHandler rpcHandler
+    Katip.katipAddNamespace "ClientRequestHandler" $
+      raftFork ClientRequestHandler clientReqHandler
 
     -- Start the main event handling loop
     handleEventLoop initStateMachine
@@ -288,54 +290,55 @@ handleEventLoop initStateMachine = do
 
     handleEventLoop' :: sm -> PersistentState -> RaftT sm v m ()
     handleEventLoop' stateMachine persistentState = do
-
-      setInitLastLogEntry
-
-      mRes <-
+      raftNodeState@(RaftNodeState nodeState) <- get
+      let nodeModeStr :: Text = show $ nodeMode raftNodeState
+      mRes <- Katip.katipAddNamespace (Katip.Namespace [nodeModeStr, "GenerateActions"]) $ do
+        setInitLastLogEntry
         withValidatedEvent $ \event -> do
-          loadLogEntryTermAtAePrevLogIndex event
-          raftNodeState@(RaftNodeState nodeState) <- get
+            loadLogEntryTermAtAePrevLogIndex event
+            -- Record the current node state as a metric
+            Metrics.setNodeStateLabel (nodeMode raftNodeState)
+            Metrics.setCommitIndexGauge (getCommitIndex nodeState)
+            numEventsInChan <- Metrics.getRaftNodeNumEventsInChan
 
-          -- Record the current node state as a metric
-          Metrics.setNodeStateLabel (nodeMode raftNodeState)
-          Metrics.setCommitIndexGauge (getCommitIndex nodeState)
-          numEventsInChan <- Metrics.getRaftNodeNumEventsInChan
-
-          $(Katip.logTM) Katip.InfoS "Started"
-          logDebug $ "[# Events in Chan]: " <> show numEventsInChan
-          logDebug $ "[Event]: " <> show event
-          logDebug $ "[NodeState]: " <> show raftNodeState
-          logDebug $ "[State Machine]: " <> show stateMachine
-          logDebug $ "[Persistent State]: " <> show persistentState
-          -- Perform core state machine transition, handling the current event
-          nodeConfig <- asks raftNodeConfig
-          raftNodeMetrics <- Metrics.getRaftNodeMetrics
-          let transitionEnv = TransitionEnv nodeConfig stateMachine raftNodeState raftNodeMetrics
-          pure (Raft.Handle.handleEvent raftNodeState transitionEnv persistentState event)
+            logDebug $ "[# Events in Chan]: " <> show numEventsInChan
+            logDebug $ "[Event]: " <> show event
+            logDebug $ "[NodeState]: " <> show raftNodeState
+            logDebug $ "[State Machine]: " <> show stateMachine
+            logDebug $ "[Persistent State]: " <> show persistentState
+            -- Perform core state machine transition, handling the current event
+            nodeConfig <- asks raftNodeConfig
+            raftNodeMetrics <- Metrics.getRaftNodeMetrics
+            let transitionEnv = TransitionEnv nodeConfig stateMachine raftNodeState raftNodeMetrics
+            pure (Raft.Handle.handleEvent raftNodeState transitionEnv persistentState event)
 
       case mRes of
         Nothing -> handleEventLoop' stateMachine persistentState
         Just (resRaftNodeState, resPersistentState, actions, logMsgs) -> do
-          logDebug "Writing PersistentState to disk..."
-          -- Write persistent state to disk.
-          --
-          -- Checking equality of Term + NodeId (what PersistentState is comprised
-          -- of) is very cheap, but writing to disk is not necessarily cheap.
-          when (resPersistentState /= persistentState) $ do
-            eRes <- lift $ writePersistentState resPersistentState
-            case eRes of
-              Left err -> throwM err
-              Right _ -> pure ()
+          (a, b) <- Katip.katipAddNamespace (Katip.Namespace [nodeModeStr, "HandleActions"]) $ do
 
-          -- Update raft node state with the resulting node state
-          put resRaftNodeState
-          -- Handle logs produced by core state machine
-          handleLogs logMsgs
-          -- Handle actions produced by core state machine
-          handleActions actions
-          -- Apply new log entries to the state machine
-          resRaftStateMachine <- applyLogEntries stateMachine
-          handleEventLoop' resRaftStateMachine resPersistentState
+            logDebug "Writing PersistentState to disk..."
+            -- Write persistent state to disk.
+            --
+            -- Checking equality of Term + NodeId (what PersistentState is comprised
+            -- of) is very cheap, but writing to disk is not necessarily cheap.
+            when (resPersistentState /= persistentState) $ do
+              eRes <- lift $ writePersistentState resPersistentState
+              case eRes of
+                Left err -> throwM err
+                Right _ -> pure ()
+
+            -- Update raft node state with the resulting node state
+            put resRaftNodeState
+            -- Handle logs produced by core state machine
+            handleLogs logMsgs
+            -- Handle actions produced by core state machine
+            handleActions actions
+            -- Apply new log entries to the state machine
+            resRaftStateMachine <- applyLogEntries stateMachine
+            return (resRaftStateMachine, resPersistentState)
+
+          handleEventLoop' a b
 
     -- In the case that a node is a follower receiving an AppendEntriesRPC
     -- Event, read the log at the aePrevLogIndex

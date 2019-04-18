@@ -20,7 +20,6 @@ module Raft.Follower (
 import Protolude
 
 import Data.Sequence (Seq(..))
-import Katip (logTM, Severity(..))
 import Raft.Action
 import Raft.NodeState
 import Raft.RPC

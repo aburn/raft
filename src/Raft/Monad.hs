@@ -44,12 +44,12 @@ import Control.Monad.Fail
 import Control.Monad.Trans.Class
 import qualified Control.Monad.Conc.Class as Conc
 
-import qualified System.IO as IO
 import Control.Concurrent.Classy.STM.TChan
-import Katip (LogEnv, Katip(..), KatipContext(..),Namespace, LogContexts, registerScribe, defaultScribeSettings, initLogEnv, Severity(..), Verbosity(..), mkHandleScribe, ColorStrategy(..))
+import qualified Katip
 import Raft.Config
 import Raft.Event
 import Raft.Logging
+import Raft.Logging1
 import Raft.Metrics (incrEventsReceivedCounter, incrEventsHandledCounter)
 import Raft.NodeState
 
@@ -132,9 +132,9 @@ data RaftEnv sm v m = RaftEnv
   , resetHeartbeatTimer :: m ()
   , raftNodeConfig :: RaftNodeConfig
   , raftNodeLogCtx :: LogCtx (RaftT sm v m)
-  , raftNodeLogEnv :: LogEnv
-  , katipContext   :: LogContexts
-  , katipNamespace :: Namespace
+  , katipLogEnv :: Katip.LogEnv
+  , katipContext   :: Katip.LogContexts
+  , katipNamespace :: Katip.Namespace
   , raftNodeMetrics :: Metrics.Metrics
   }
 
@@ -162,23 +162,20 @@ instance Monad m => RaftLogger sm v (RaftT sm v m) where
     raftNodeState :: RaftNodeState sm v <- get
     (,) <$> asks (raftConfigNodeId . raftNodeConfig) <*> pure raftNodeState
 
-instance MonadIO m => Katip (RaftT sm v m) where
-    getLogEnv = asks raftNodeLogEnv
+instance MonadIO m => Katip.Katip (RaftT sm v m) where
+    getLogEnv = asks katipLogEnv
+    localLogEnv f (RaftT m) = RaftT (local (\s -> s { katipLogEnv = f (katipLogEnv s)}) m)
 
 
-instance MonadIO m => KatipContext (RaftT sm v m) where
-  getKatipContext   = asks katipContext
+instance MonadIO m => Katip.KatipContext (RaftT sm v m) where
+  getKatipContext = asks katipContext
+  localKatipContext f (RaftT m) = RaftT (local (\s -> s { katipContext = f (katipContext s)}) m)
   getKatipNamespace = asks katipNamespace
+  localKatipNamespace f (RaftT m) = RaftT (local (\s -> s { katipNamespace = f (katipNamespace s)}) m)
+
 
 instance Monad m => Metrics.MonadMetrics (RaftT sm v m) where
   getMetrics = asks raftNodeMetrics
-
-defaultLogEnv :: IO LogEnv
-defaultLogEnv = do
-    handleScribe <- mkHandleScribe ColorIfTerminal IO.stdout DebugS V2
-    env <- initLogEnv "servant" "production"
-    registerScribe "stdout" handleScribe defaultScribeSettings env
-
 initializeRaftEnv
   :: MonadIO m
   => RaftEventChan v m
@@ -196,7 +193,9 @@ initializeRaftEnv eventChan resetElectionTimer resetHeartbeatTimer nodeConfig lo
     , resetHeartbeatTimer = resetHeartbeatTimer
     , raftNodeConfig = nodeConfig
     , raftNodeLogCtx = logCtx
-    , raftNodeLogEnv = logEnv
+    , katipLogEnv = logEnv
+    , katipContext = mempty
+    , katipNamespace = mempty
     , raftNodeMetrics = metrics
     }
 
@@ -226,13 +225,13 @@ readRaftEventChan = do
 ------------------------------------------------------------------------------
 
 logInfo :: MonadIO m => Text -> RaftT sm v m ()
-logInfo msg = flip logInfoIO msg =<< asks raftNodeLogCtx
+logInfo msg = Katip.logFM Katip.InfoS $ Katip.logStr msg
 
 logDebug :: MonadIO m => Text -> RaftT sm v m ()
-logDebug msg = flip logDebugIO msg =<< asks raftNodeLogCtx
+logDebug msg = Katip.logFM Katip.DebugS $ Katip.logStr msg
 
 logCritical :: MonadIO m => Text -> RaftT sm v m ()
-logCritical msg = flip logCriticalIO msg =<< asks raftNodeLogCtx
+logCritical msg = Katip.logFM Katip.CriticalS $ Katip.logStr msg
 
 logAndPanic :: MonadIO m => Text -> RaftT sm v m a
 logAndPanic msg = flip logAndPanicIO msg =<< asks raftNodeLogCtx
