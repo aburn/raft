@@ -176,6 +176,7 @@ instance MonadIO m => Katip.KatipContext (RaftT sm v m) where
 
 instance Monad m => Metrics.MonadMetrics (RaftT sm v m) where
   getMetrics = asks raftNodeMetrics
+
 initializeRaftEnv
   :: MonadIO m
   => RaftEventChan v m
@@ -186,7 +187,11 @@ initializeRaftEnv
   -> m (RaftEnv sm v m)
 initializeRaftEnv eventChan resetElectionTimer resetHeartbeatTimer nodeConfig logCtx = do
   metrics <- liftIO Metrics.initialize
-  logEnv <- liftIO defaultLogEnv
+
+  logEnv <- case logCtx of
+    NoLogs -> pure emptyLogEnv
+    LogCtx logDest _ -> liftIO $ defaultLogEnv logDest
+
   pure RaftEnv
     { eventChan = eventChan
     , resetElectionTimer = resetElectionTimer

@@ -88,10 +88,6 @@ logToDest :: MonadIO m => LogCtx m -> LogMsg -> m ()
 logToDest LogCtx{..} logMsg = do
   let msgSeverity = severity logMsg
   case logCtxDest of
-    LogWith f -> if msgSeverity >= logCtxSeverity
-                  then do
-                    f msgSeverity (logMsgToText logMsg)
-                  else pure ()
     LogStdout -> if msgSeverity >= logCtxSeverity
                     then liftIO $ putText (logMsgToText logMsg)
                     else pure ()
