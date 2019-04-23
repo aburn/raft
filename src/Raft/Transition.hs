@@ -52,38 +52,41 @@ data TransitionEnv sm v = TransitionEnv
   , katipEnv :: KatipEnv
   }
 
-newtype TransitionM sm v a = TransitionM
-  { unTransitionM :: RaftLoggerT sm v (RWS (TransitionEnv sm v) [Action sm v] PersistentState) a
-  } deriving (Functor, Applicative, Monad)
+newtype TransitionT sm v m a = TransitionT
+  { unTransitionT :: (RWST (TransitionEnv sm v) [Action sm v] PersistentState m a)
+  } deriving (Functor, Applicative, Monad, MonadIO, MonadReader (TransitionEnv sm v), MonadWriter [Action sm v], MonadState PersistentState)
 
-instance MonadWriter [Action sm v] (TransitionM sm v) where
-  tell = TransitionM . RaftLoggerT . tell
-  listen = TransitionM . RaftLoggerT . listen . unRaftLoggerT . unTransitionM
-  pass = TransitionM . RaftLoggerT . pass . unRaftLoggerT . unTransitionM
+type TransitionM sm v a = TransitionT sm v IO a
 
-instance MonadReader (TransitionEnv sm v) (TransitionM sm v) where
-  ask = TransitionM . RaftLoggerT $ ask
-  local f = TransitionM . RaftLoggerT . local f . unRaftLoggerT . unTransitionM
+--instance MonadWriter [Action sm v] (TransitionT sm v m) where
+  --tell = TransitionT . tell
+  --listen = TransitionT . listen . unTransitionT
+  --pass = TransitionT . pass . unTransitionT
 
-instance MonadState PersistentState (TransitionM sm v) where
-  get = TransitionM . RaftLoggerT $ lift get
-  put = TransitionM . RaftLoggerT . lift . put
+--instance MonadReader (TransitionEnv sm v) (TransitionT sm v m) where
+  --ask = ask
+  --local f = TransitionT . local f . unTransitionT
+
+--instance MonadState PersistentState (TransitionT sm v m) where
+  --get = TransitionM . RaftLoggerT $ lift get
+  --put = TransitionM . RaftLoggerT . lift . put
 
 instance RaftLogger sm v (RWS (TransitionEnv sm v) [Action sm v] PersistentState) where
   loggerCtx = asks ((raftConfigNodeId . nodeConfig) &&& nodeState)
 
-instance Katip.Katip (TransitionM sm v) where
-    getLogEnv = asks $ katipLogEnv . katipEnv
+instance MonadIO m => Katip.Katip (TransitionT sm v m) where
+    getLogEnv = asks (katipLogEnv . katipEnv)
     --localLogEnv f (RaftT m) = RaftT (local (\s -> s { katipLogEnv = f (katipLogEnv s)}) m)
 
 
 runTransitionM
-  :: TransitionEnv sm v
+  :: MonadIO m
+  => TransitionEnv sm v
   -> PersistentState
-  -> TransitionM sm v a
-  -> ((a, [LogMsg]), PersistentState, [Action sm v])
+  -> TransitionT sm v m a
+  -> m (a, PersistentState, [Action sm v])
 runTransitionM transEnv persistentState transitionM =
-  runRWS (runRaftLoggerT (unTransitionM transitionM)) transEnv persistentState
+  runRWST ( (unTransitionT transitionM)) transEnv persistentState
 
 askNodeId :: TransitionM sm v NodeId
 askNodeId = asks (raftConfigNodeId . nodeConfig)
@@ -206,6 +209,6 @@ startElection commitIndex lastApplied lastLogEntry clientReqCache  = do
 --------------------------------------------------------------------------------
 -- Logging
 --------------------------------------------------------------------------------
-
-logInfo = TransitionM . Logging.logInfo
-logDebug = TransitionM . Logging.logDebug
+logInfo, logDebug :: [Char] -> _a
+logInfo = undefined
+logDebug = undefined
