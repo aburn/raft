@@ -58,34 +58,21 @@ newtype TransitionT sm v m a = TransitionT
 
 type TransitionM sm v a = TransitionT sm v IO a
 
---instance MonadWriter [Action sm v] (TransitionT sm v m) where
-  --tell = TransitionT . tell
-  --listen = TransitionT . listen . unTransitionT
-  --pass = TransitionT . pass . unTransitionT
-
---instance MonadReader (TransitionEnv sm v) (TransitionT sm v m) where
-  --ask = ask
-  --local f = TransitionT . local f . unTransitionT
-
---instance MonadState PersistentState (TransitionT sm v m) where
-  --get = TransitionM . RaftLoggerT $ lift get
-  --put = TransitionM . RaftLoggerT . lift . put
-
 instance RaftLogger sm v (RWS (TransitionEnv sm v) [Action sm v] PersistentState) where
   loggerCtx = asks ((raftConfigNodeId . nodeConfig) &&& nodeState)
 
 instance MonadIO m => Katip.Katip (TransitionT sm v m) where
     getLogEnv = asks (katipLogEnv . katipEnv)
-    --localLogEnv f (RaftT m) = RaftT (local (\s -> s { katipLogEnv = f (katipLogEnv s)}) m)
+    --localLogEnv f (TransitionT m) = TransitionT (local (\s -> s { katipLogEnv = f (katipLogEnv s)}) m)
 
 
-runTransitionM
+runTransitionT
   :: MonadIO m
   => TransitionEnv sm v
   -> PersistentState
   -> TransitionT sm v m a
   -> m (a, PersistentState, [Action sm v])
-runTransitionM transEnv persistentState transitionM =
+runTransitionT transEnv persistentState transitionM =
   runRWST ( (unTransitionT transitionM)) transEnv persistentState
 
 askNodeId :: TransitionM sm v NodeId
