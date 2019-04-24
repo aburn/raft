@@ -31,21 +31,23 @@ import Raft.Logging (LogMsg)
 -- | Main entry point for handling events
 handleEvent
   :: forall sm v m.
-     (RaftStateMachinePure sm v, Show sm, Show v, Serialize v, MonadIO m)
+     (RaftStateMachinePure sm v, Show sm, Show v, Serialize v)
   => RaftNodeState sm v
   -> TransitionEnv sm v
   -> PersistentState
   -> Event v
-  -> m (RaftNodeState sm v, PersistentState, [Action sm v])
-handleEvent raftNodeState@(RaftNodeState initNodeState) transitionEnv persistentState event =
+  -> IO (RaftNodeState sm v, PersistentState, [Action sm v])
+handleEvent raftNodeState@(RaftNodeState initNodeState) transitionEnv persistentState event = do
     -- Rules for all servers:
-    case handleNewerRPCTerm of
-      (RaftNodeState resNodeState, persistentState', outputs) ->
-        case handleEvent' resNodeState transitionEnv persistentState' event of
+    res <- handleNewerRPCTerm
+    case res of
+      (RaftNodeState resNodeState, persistentState', outputs) -> do
+        res' <- handleEvent' resNodeState transitionEnv persistentState' event
+        case res' of
           ((ResultState transition resultState), persistentState'', outputs') ->
-            (RaftNodeState resultState, persistentState'', outputs <> outputs')
+            pure $ (RaftNodeState resultState, persistentState'', outputs <> outputs')
   where
-    handleNewerRPCTerm :: (RaftNodeState sm v, PersistentState, [Action sm v])
+    handleNewerRPCTerm :: IO (RaftNodeState sm v, PersistentState, [Action sm v])
     handleNewerRPCTerm =
       case event of
         MessageEvent (RPCMessageEvent (RPCMessage _ rpc)) ->
@@ -56,7 +58,7 @@ handleEvent raftNodeState@(RaftNodeState initNodeState) transitionEnv persistent
             if (currentTerm < rpcTerm rpc)
               then convertToFollower (rpcTerm rpc)
               else pure raftNodeState
-        _ -> (raftNodeState, persistentState, mempty)
+        _ -> pure $ (raftNodeState, persistentState, mempty)
 
     convertToFollower :: Term -> TransitionM sm v (RaftNodeState sm v)
     convertToFollower term =
@@ -148,12 +150,12 @@ mkRaftHandler nodeState =
 
 handleEvent'
   :: forall ns sm v m.
-     (RaftStateMachinePure sm v, Show sm, Show v, Serialize v, MonadIO m)
+     (RaftStateMachinePure sm v, Show sm, Show v, Serialize v)
   => NodeState ns sm v
   -> TransitionEnv sm v
   -> PersistentState
   -> Event v
-  -> m ((ResultState ns sm v ), PersistentState, [Action sm v])
+  -> IO ((ResultState ns sm v ), PersistentState, [Action sm v])
 handleEvent' initNodeState transitionEnv persistentState event =
     runTransitionT transitionEnv persistentState $ do
       case event of

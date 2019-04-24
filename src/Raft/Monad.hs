@@ -162,14 +162,14 @@ instance Monad m => RaftLogger sm v (RaftT sm v m) where
 
 instance MonadIO m => Katip.Katip (RaftT sm v m) where
     getLogEnv = asks $ katipLogEnv . katipEnv
-    --localLogEnv f (RaftT m) = RaftT (local (\s -> s { katipLogEnv = f (katipLogEnv s)}) m)
+    localLogEnv f (RaftT m) = RaftT (local (\s -> s { katipEnv = localKatipLogEnv f (katipEnv s)}) m)
 
 
 instance MonadIO m => Katip.KatipContext (RaftT sm v m) where
   getKatipContext = asks $ katipContext . katipEnv
-  --localKatipContext f (RaftT m) = RaftT (local (\s -> s { katipContext = f (katipContext s)}) m)
+  localKatipContext f (RaftT m) = RaftT (local (\s -> s { katipEnv = localLogContexts f (katipEnv s)}) m)
   getKatipNamespace = asks $ katipNamespace . katipEnv
-  --localKatipNamespace f (RaftT m) = RaftT (local (\s -> s { katipNamespace = f (katipNamespace s)}) m)
+  localKatipNamespace f (RaftT m) = RaftT (local (\s -> s { katipEnv = localNamespace f (katipEnv s)}) m)
 
 
 instance Monad m => Metrics.MonadMetrics (RaftT sm v m) where
@@ -229,14 +229,15 @@ readRaftEventChan = do
 -- Logging
 ------------------------------------------------------------------------------
 
-logInfo :: MonadIO m => Text -> RaftT sm v m ()
+logInfo :: Katip.KatipContext m => Text -> m ()
 logInfo msg = Katip.logFM Katip.InfoS $ Katip.logStr msg
 
-logDebug :: MonadIO m => Text -> RaftT sm v m ()
+logDebug :: Katip.KatipContext m => Text -> m ()
 logDebug msg = Katip.logFM Katip.DebugS $ Katip.logStr msg
 
-logCritical :: MonadIO m => Text -> RaftT sm v m ()
+logCritical :: Katip.KatipContext m => Text -> m ()
 logCritical msg = Katip.logFM Katip.CriticalS $ Katip.logStr msg
+
 
 logAndPanic :: MonadIO m => Text -> RaftT sm v m a
 logAndPanic msg = flip logAndPanicIO msg =<< asks raftNodeLogCtx

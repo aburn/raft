@@ -35,6 +35,7 @@ import Raft.Persistent
 import Raft.Log
 import Raft.Transition
 import Raft.Types
+import Raft.Logging1
 
 --------------------------------------------------------------------------------
 -- Leader

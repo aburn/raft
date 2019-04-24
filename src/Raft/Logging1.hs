@@ -20,6 +20,17 @@ data KatipEnv = KatipEnv {
   , katipNamespace :: Katip.Namespace
 }
 
+localKatipLogEnv :: (LogEnv -> LogEnv) -> KatipEnv -> KatipEnv
+localKatipLogEnv f s@KatipEnv{..} = s { katipLogEnv = f katipLogEnv }
+
+localLogContexts :: (LogContexts-> LogContexts) -> KatipEnv -> KatipEnv
+localLogContexts f s@KatipEnv{..} = s { katipContext = f katipContext }
+
+
+localNamespace :: (Namespace -> Namespace) -> KatipEnv -> KatipEnv
+localNamespace f s@KatipEnv{..} = s { katipNamespace = f katipNamespace}
+
+
 emptyLogEnv :: LogEnv
 emptyLogEnv = LogEnv "localhost" 0 "Raft" "" getCurrentTime Map.empty
 
@@ -48,4 +59,15 @@ logFormatter withColor verb Item{..} =
     ks = map brackets $ getKeys verb _itemPayload
     renderSeverity' severity =
       colorBySeverity withColor severity (renderSeverity severity)
+
+
+logInfo :: Katip.KatipContext m => Text -> m ()
+logInfo msg = Katip.logFM Katip.InfoS $ Katip.logStr msg
+
+logDebug :: Katip.KatipContext m => Text -> m ()
+logDebug msg = Katip.logFM Katip.DebugS $ Katip.logStr msg
+
+logCritical :: Katip.KatipContext m => Text -> m ()
+logCritical msg = Katip.logFM Katip.CriticalS $ Katip.logStr msg
+
 

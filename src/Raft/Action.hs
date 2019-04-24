@@ -13,6 +13,7 @@ import Raft.Log
 import Raft.Event
 import Raft.StateMachine
 import Raft.Types
+import Katip
 
 data Action sm v
   = SendRPC NodeId (SendRPCAction v) -- ^ Send a message to a specific node id
@@ -31,3 +32,4 @@ data SendRPCAction v
   | SendRequestVoteRPC RequestVote
   | SendRequestVoteResponseRPC RequestVoteResponse
   deriving (Show)
+

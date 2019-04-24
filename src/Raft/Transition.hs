@@ -63,7 +63,13 @@ instance RaftLogger sm v (RWS (TransitionEnv sm v) [Action sm v] PersistentState
 
 instance MonadIO m => Katip.Katip (TransitionT sm v m) where
     getLogEnv = asks (katipLogEnv . katipEnv)
-    --localLogEnv f (TransitionT m) = TransitionT (local (\s -> s { katipLogEnv = f (katipLogEnv s)}) m)
+    localLogEnv f (TransitionT m) = TransitionT (local (\s -> s { katipEnv = localKatipLogEnv f (katipEnv s)}) m)
+
+instance MonadIO m => Katip.KatipContext (TransitionT sm v m) where
+  getKatipContext = asks $ katipContext . katipEnv
+  localKatipContext f (TransitionT m) = TransitionT  (local (\s -> s { katipEnv = localLogContexts f (katipEnv s)}) m)
+  getKatipNamespace = asks $ katipNamespace . katipEnv
+  localKatipNamespace f (TransitionT m) = TransitionT  (local (\s -> s { katipEnv = localNamespace f (katipEnv s)}) m)
 
 
 runTransitionT
@@ -193,9 +199,3 @@ startElection commitIndex lastApplied lastLogEntry clientReqCache  = do
       modify $ \pstate ->
         pstate { votedFor = Just selfNodeId }
 
---------------------------------------------------------------------------------
--- Logging
---------------------------------------------------------------------------------
-logInfo, logDebug :: [Char] -> _a
-logInfo = undefined
-logDebug = undefined

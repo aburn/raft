@@ -162,7 +162,6 @@ runRaftNode nodeConfig@RaftNodeConfig{..} optConfig logCtx initStateMachine = do
   metricsPort <- liftIO (resolveMetricsPort (raftConfigMetricsPort optConfig))
   timerSeed <- liftIO (resolveTimerSeed (raftConfigTimerSeed optConfig))
 
-
   -- Initialize the persistent state and logs storage if specified
   initializeStorage raftConfigStorageState
 
@@ -309,20 +308,21 @@ handleEventLoop initStateMachine = do
             -- Perform core state machine transition, handling the current event
             nodeConfig <- asks raftNodeConfig
             raftNodeMetrics <- Metrics.getRaftNodeMetrics
-            let transitionEnv = TransitionEnv nodeConfig stateMachine raftNodeState raftNodeMetrics
-            pure (Raft.Handle.handleEvent raftNodeState transitionEnv persistentState event)
+            katipEnv <- asks Raft.Monad.katipEnv -- TODO
+            let transitionEnv = TransitionEnv nodeConfig stateMachine raftNodeState raftNodeMetrics katipEnv
+            liftIO (Raft.Handle.handleEvent raftNodeState transitionEnv persistentState event)
 
       case mRes of
         Nothing -> handleEventLoop' stateMachine persistentState
-        Just (resRaftNodeState, resPersistentState, actions, logMsgs) -> do
+        Just (resRaftNodeState, resPersistentState, actions) -> do
           (a, b) <- Katip.katipAddNamespace (Katip.Namespace [nodeModeStr, "HandleActions"]) $ do
 
-            logDebug "Writing PersistentState to disk..."
             -- Write persistent state to disk.
             --
             -- Checking equality of Term + NodeId (what PersistentState is comprised
             -- of) is very cheap, but writing to disk is not necessarily cheap.
             when (resPersistentState /= persistentState) $ do
+              logDebug "Writing PersistentState to disk..."
               eRes <- lift $ writePersistentState resPersistentState
               case eRes of
                 Left err -> throwM err
@@ -331,7 +331,7 @@ handleEventLoop initStateMachine = do
             -- Update raft node state with the resulting node state
             put resRaftNodeState
             -- Handle logs produced by core state machine
-            handleLogs logMsgs
+            --handleLogs logMsgs
             -- Handle actions produced by core state machine
             handleActions actions
             -- Apply new log entries to the state machine
@@ -619,15 +619,6 @@ applyLogEntries stateMachine = do
     commitIndex :: NodeState ns sm v -> Index
     commitIndex = snd . getLastAppliedAndCommitIndex
 
-handleLogs
-  :: (MonadIO m, MonadRaft v m)
-  => [LogMsg]
-  -> RaftT sm v m ()
-handleLogs logs = do
-  logCtx <- asks raftNodeLogCtx
-  pure ()
-  -- TODO print logs from pure
-  --mapM_ (logToDest logCtx) logs
 
 ------------------------------------------------------------------------------
 -- Event Producers
