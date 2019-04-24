@@ -289,12 +289,12 @@ handleEventLoop initStateMachine = do
 
     handleEventLoop' :: sm -> PersistentState -> RaftT sm v m ()
     handleEventLoop' stateMachine persistentState = do
-      raftNodeState@(RaftNodeState nodeState) <- get
-      let nodeModeStr :: Text = show $ nodeMode raftNodeState
+      nodeModeStr <- show . nodeMode <$> get
       mRes <- Katip.katipAddNamespace (Katip.Namespace [nodeModeStr, "GenerateActions"]) $ do
         setInitLastLogEntry
         withValidatedEvent $ \event -> do
             loadLogEntryTermAtAePrevLogIndex event
+            raftNodeState@(RaftNodeState nodeState) <- get
             -- Record the current node state as a metric
             Metrics.setNodeStateLabel (nodeMode raftNodeState)
             Metrics.setCommitIndexGauge (getCommitIndex nodeState)
