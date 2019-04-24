@@ -228,16 +228,6 @@ readRaftEventChan = do
 ------------------------------------------------------------------------------
 -- Logging
 ------------------------------------------------------------------------------
-
-logInfo :: Katip.KatipContext m => Text -> m ()
-logInfo msg = Katip.logFM Katip.InfoS $ Katip.logStr msg
-
-logDebug :: Katip.KatipContext m => Text -> m ()
-logDebug msg = Katip.logFM Katip.DebugS $ Katip.logStr msg
-
-logCritical :: Katip.KatipContext m => Text -> m ()
-logCritical msg = Katip.logFM Katip.CriticalS $ Katip.logStr msg
-
-
+--
 logAndPanic :: MonadIO m => Text -> RaftT sm v m a
 logAndPanic msg = flip logAndPanicIO msg =<< asks raftNodeLogCtx
