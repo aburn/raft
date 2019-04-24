@@ -153,7 +153,7 @@ runRaftNode
      )
    => RaftNodeConfig         -- ^ Node configuration
    -> OptionalRaftNodeConfig -- ^ Config values that can be provided optionally
-   -> LogCtx (RaftT sm v m)     -- ^ The means with which to log messages
+   -> LogCtx      -- ^ The means with which to log messages
    -> sm                     -- ^ Initial state machine state
    -> m ()
 runRaftNode nodeConfig@RaftNodeConfig{..} optConfig logCtx initStateMachine = do

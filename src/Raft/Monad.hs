@@ -128,7 +128,7 @@ data RaftEnv sm v m = RaftEnv
   , resetElectionTimer :: m ()
   , resetHeartbeatTimer :: m ()
   , raftNodeConfig :: RaftNodeConfig
-  , raftNodeLogCtx :: LogCtx (RaftT sm v m)
+  , raftNodeLogCtx :: LogCtx
   , raftNodeMetrics :: Metrics.Metrics
   , katipEnv :: KatipEnv
   }
@@ -178,7 +178,7 @@ initializeRaftEnv
   -> m ()
   -> m ()
   -> RaftNodeConfig
-  -> LogCtx (RaftT sm v m)
+  -> LogCtx
   -> m (RaftEnv sm v m)
 initializeRaftEnv eventChan resetElectionTimer resetHeartbeatTimer nodeConfig logCtx = do
   metrics <- liftIO Metrics.initialize

@@ -29,7 +29,6 @@ import Raft.Metrics (RaftNodeMetrics)
 import Raft.NodeState
 import Raft.RPC
 import Raft.Types
-import Raft.Logging (RaftLogger, runRaftLoggerT, RaftLoggerT(..), LogMsg)
 import Raft.Logging1
 import qualified Raft.Logging as Logging
 
@@ -53,13 +52,10 @@ data TransitionEnv sm v = TransitionEnv
   }
 
 newtype TransitionT sm v m a = TransitionT
-  { unTransitionT :: (RWST (TransitionEnv sm v) [Action sm v] PersistentState m a)
+  { unTransitionT :: RWST (TransitionEnv sm v) [Action sm v] PersistentState m a
   } deriving (Functor, Applicative, Monad, MonadIO, MonadReader (TransitionEnv sm v), MonadWriter [Action sm v], MonadState PersistentState)
 
 type TransitionM sm v a = TransitionT sm v IO a
-
-instance RaftLogger sm v (RWS (TransitionEnv sm v) [Action sm v] PersistentState) where
-  loggerCtx = asks ((raftConfigNodeId . nodeConfig) &&& nodeState)
 
 instance MonadIO m => Katip.Katip (TransitionT sm v m) where
     getLogEnv = asks (katipLogEnv . katipEnv)

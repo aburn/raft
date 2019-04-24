@@ -1,5 +1,6 @@
 
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RankNTypes #-}
 module Raft.Logging1 where
 import Protolude
 import Data.Text.Lazy.Builder
@@ -34,15 +35,22 @@ localNamespace f s@KatipEnv{..} = s { katipNamespace = f katipNamespace}
 emptyLogEnv :: LogEnv
 emptyLogEnv = LogEnv "localhost" 0 "Raft" "" getCurrentTime Map.empty
 
-defaultLogEnv :: LogDest m -> IO LogEnv
+logWithScribe :: (Raft.Logging.Severity -> Text -> IO ()) -> Scribe
+logWithScribe f = Scribe logger (return ())
+  where
+    --logger :: Katip.Item v -> IO ()
+    logger i@Katip.Item{..} = f Info $toS $ toLazyText (logFormatter False V2 i)
+
+defaultLogEnv :: MonadIO m => LogDest  -> m LogEnv
 defaultLogEnv logDest= do
     handleScribe <-
       case logDest of
-        LogStdout -> Katip.mkHandleScribeWithFormatter logFormatter Katip.ColorIfTerminal IO.stdout Katip.DebugS Katip.V2
-        LogFile path -> Katip.mkFileScribe path Katip.DebugS Katip.V2
+        LogWith f -> pure $ logWithScribe f
+        LogStdout -> liftIO $ Katip.mkHandleScribeWithFormatter logFormatter Katip.ColorIfTerminal IO.stdout Katip.DebugS Katip.V2
+        LogFile path -> liftIO$ Katip.mkFileScribe path Katip.DebugS Katip.V2
 
-    env <- Katip.initLogEnv "Raft" "production"
-    Katip.registerScribe "stdout" handleScribe Katip.defaultScribeSettings env
+    env <- liftIO $ Katip.initLogEnv "Raft" "production"
+    liftIO $ Katip.registerScribe "stdout" handleScribe Katip.defaultScribeSettings env
 
 -- | Log formatter with PID and ThreadID removed.
 -- Based on https://hackage.haskell.org/package/katip-0.8.1.0/docs/src/Katip.Scribes.Handle.html#bracketFormat
