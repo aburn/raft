@@ -11,7 +11,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
-{-# LANGUAGE TemplateHaskell            #-}
 module Raft
   (
   -- * State machine type class
@@ -125,6 +124,7 @@ import Raft.Handle
 import Raft.Monad
 import Raft.Log
 import Raft.Logging hiding (logInfo, logDebug, logCritical, logAndPanic)
+import Raft.Logging1
 import Raft.Transition hiding (logInfo, logDebug)
 import Raft.NodeState
 import Raft.Persistent

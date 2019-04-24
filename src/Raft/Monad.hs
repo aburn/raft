@@ -29,9 +29,6 @@ module Raft.Monad (
 , readRaftEventChan
 
 
-, Raft.Monad.logInfo
-, Raft.Monad.logDebug
-, Raft.Monad.logCritical
 , Raft.Monad.logAndPanic
 
 ) where
